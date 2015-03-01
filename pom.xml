@@ -6,7 +6,6 @@
   <artifactId>loop</artifactId>
   <packaging>jar</packaging>
   <version>1.0</version>
-  <url>http://looplang.org</url>
 
   <repositories>
     <repository>
@@ -17,36 +16,56 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.resourceEncoding>UTF-8</project.build.resourceEncoding>
+    <jdk.version>1.6</jdk.version>
+
+    <!--+== Versions ==+-->
+    <!-- Dependencies -->
+    <asm.version>4.0</asm.version>
+    <jline.version>2.6</jline.version>
+    <mvel.version>2.1.Beta8</mvel.version>
+    <junit.version>4.12</junit.version>
+
+    <!-- Plugins -->
+    <maven-clean-plugin.version>2.6.1</maven-clean-plugin.version>
+    <maven-resources-plugin.version>2.7</maven-resources-plugin.version>
+    <gmaven-plugin.version>1.5</gmaven-plugin.version>
+    <maven-compiler-plugin.version>3.2</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>2.18.1</maven-surefire-plugin.version>
+    <maven-jar-plugin.version>2.5</maven-jar-plugin.version>
+    <maven-assembly-plugin.version>2.5.3</maven-assembly-plugin.version>
   </properties>
 
   <dependencies>
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm</artifactId>
-      <version>4.0</version>
+      <version>${asm.version}</version>
     </dependency>
+
     <dependency>
       <groupId>org.ow2.asm</groupId>
       <artifactId>asm-util</artifactId>
-      <version>4.0</version>
+      <version>${asm.version}</version>
     </dependency>
+
     <dependency>
       <groupId>jline</groupId>
       <artifactId>jline</artifactId>
-      <version>2.6</version>
+      <version>${jline.version}</version>
     </dependency>
-
 
     <dependency>
       <groupId>org.mvel</groupId>
       <artifactId>mvel2</artifactId>
-      <version>2.1.Beta8</version>
+      <version>${mvel.version}</version>
       <scope>test</scope>
     </dependency>
+
     <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
-      <version>4.8.2</version>
+      <version>${junit.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -59,56 +78,119 @@
         <directory>resources</directory>
       </resource>
     </resources>
-    <plugins>
-      <plugin>
-        <version>2.3.2</version>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <source>1.6</source>
-          <target>1.6</target>
-        </configuration>
-      </plugin>
+
+    <plugins> <!-- in maven lifecycle order-->
+
+      <!-- http://maven.apache.org/plugins/maven-clean-plugin/ -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.3</version>
+        <artifactId>maven-clean-plugin</artifactId>
+        <version>${maven-clean-plugin.version}</version>
+      </plugin>
+
+      <!-- http://maven.apache.org/plugins/maven-resources-plugin/ -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>${maven-resources-plugin.version}</version>
         <configuration>
-          <descriptorRefs>
-            <descriptorRef>jar-with-dependencies</descriptorRef>
-          </descriptorRefs>
-          <archive>
-            <manifestFile>resources/MANIFEST.MF</manifestFile>
-          </archive>
+          <encoding>${project.build.resourceEncoding}</encoding>
         </configuration>
       </plugin>
+
+      <!-- http://docs.codehaus.org/display/GMAVEN/Home -->
+      <!-- Obsolete plugin, but does the job as intended -->
+      <!--
+        We want to execute a shell command to get the abbreviate hash
+        of the last commit and set the result into a property (githash)
+        accessible from the assembly plugin
+      -->
       <plugin>
-        <groupId>org.sonatype.plugins</groupId>
-        <artifactId>jarjar-maven-plugin</artifactId>
-        <version>1.5</version>
+        <groupId>org.codehaus.gmaven</groupId>
+        <artifactId>gmaven-plugin</artifactId>
+        <version>${gmaven-plugin.version}</version>
         <executions>
           <execution>
-            <phase>none</phase>
+            <phase>validate</phase>
             <goals>
-              <goal>jarjar</goal>
+              <goal>execute</goal>
             </goals>
             <configuration>
-              <includes>
-                <include>*:jline</include>
-              </includes>
-              <rules>
-                <rule>
-                  <pattern>jline.**.*</pattern>
-                  <result>loop.internal.jline.@1.$@2</result>
-                </rule>
-                <keep>
-                  <pattern>loop.*</pattern>
-                </keep>
-              </rules>
+              <properties>
+                <script>git rev-parse --short HEAD</script>
+              </properties>
+              <source>
+                def command = project.properties.script
+                def process = command.execute()
+                process.waitFor()
+                def githash = process.in.text.trim()
+                project.properties.setProperty('githash', githash)
+              </source>
             </configuration>
           </execution>
         </executions>
       </plugin>
-    </plugins>
 
+      <!-- http://maven.apache.org/plugins/maven-compiler-plugin/ -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven-compiler-plugin.version}</version>
+        <configuration>
+          <source>${jdk.version}</source>
+          <target>${jdk.version}</target>
+          <encoding>${project.build.sourceEncoding}</encoding> <!-- Default, but does no harm -->
+        </configuration>
+      </plugin>
+
+      <!-- http://maven.apache.org/surefire/maven-surefire-plugin/ -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
+      </plugin>
+
+      <!-- http://maven.apache.org/plugins/maven-jar-plugin/ -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${maven-jar-plugin.version}</version>
+      </plugin>
+
+      <!-- http://maven.apache.org/plugins/maven-assembly-plugin/ -->
+      <!--
+            Package 'loop' with its dependencies.
+            We get a warning as 'install' and 'deploy' phases will
+            take the generated jar as the main one to deploy it in a
+            local/remote binary repository.
+            NOT THE END OF THE WORLD (for now at least...)
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <version>${maven-assembly-plugin.version}</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>loop.Loop</mainClass>
+            </manifest>
+          </archive>
+          <descriptorRefs>
+            <descriptorRef>jar-with-dependencies</descriptorRef>
+          </descriptorRefs>
+          <assemblyId>final</assemblyId>
+          <appendAssemblyId>false</appendAssemblyId> <!-- Warning because of this -->
+          <finalName>loop.${project.version}-${githash}</finalName>
+        </configuration>
+      </plugin>
+    </plugins>
   </build>
 </project>
