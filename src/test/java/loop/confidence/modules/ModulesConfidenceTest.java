@@ -138,6 +138,6 @@ public class ModulesConfidenceTest extends LoopTest {
   @Test
   public final void requireFileModule() {
     Assert.assertTrue(TestFilesLoader.run("loop/confidence/modules/require_file.loop").toString()
-        .contains("http://looplang.org"));
+        .contains("<packaging>jar</packaging>")); // The packing won't change any time soon. We are pretty safe here.
   }
 }

@@ -1,4 +1,4 @@
 require file
 
 main ->
-  print(read('loop'))
+  print(read('pom.xml'))
