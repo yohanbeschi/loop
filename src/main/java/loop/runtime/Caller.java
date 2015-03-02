@@ -65,7 +65,7 @@ public class Caller {
   }
 
 
-  @SuppressWarnings("unchecked")
+
   public static Object instantiate(String type, Object... args) throws Exception {
     Class<?> clazz = Class.forName(type);
 

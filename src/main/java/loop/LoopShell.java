@@ -1,5 +1,14 @@
 package loop;
 
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import jline.console.ConsoleReader;
 import jline.console.completer.Completer;
 import jline.console.completer.FileNameCompleter;
@@ -14,30 +23,21 @@ import loop.ast.script.Unit;
 import loop.lang.LoopObject;
 import loop.runtime.Closure;
 
-import java.io.IOException;
-import java.io.StringReader;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 /**
  * @author dhanji@gmail.com (Dhanji R. Prasanna)
  */
 public class LoopShell {
   private static Map<String, Object> shellContext;
 
-  public static Object shellObtain(String var) {
-    return shellContext.get(var);
+  public static Object shellObtain(final String var) {
+    return LoopShell.shellContext.get(var);
   }
 
   public static void shell() throws Exception {
     System.out.println("loOp (http://looplang.org)");
     System.out.println("     by Dhanji R. Prasanna\n");
 
-    ConsoleReader reader = new ConsoleReader();
+    final ConsoleReader reader = new ConsoleReader();
     try {
       reader.setExpandEvents(false);
       reader.addCompleter(new MetaCommandCompleter());
@@ -45,15 +45,15 @@ public class LoopShell {
       Unit shellScope = new Unit(null, ModuleDecl.SHELL);
       FunctionDecl main = new FunctionDecl("main", null);
       shellScope.declare(main);
-      shellContext = new HashMap<String, Object>();
+      LoopShell.shellContext = new HashMap<String, Object>();
 
       boolean inFunction = false;
 
       // Used to build up multiline statement blocks (like functions)
       StringBuilder block = null;
-      //noinspection InfiniteLoopStatement
+      // noinspection InfiniteLoopStatement
       do {
-        String prompt = (block != null) ? "|    " : ">> ";
+        final String prompt = block != null ? "|    " : ">> ";
         String rawLine = reader.readLine(prompt);
 
         if (inFunction) {
@@ -61,7 +61,7 @@ public class LoopShell {
             inFunction = false;
 
             // Eval the function to verify it.
-            printResult(Loop.evalClassOrFunction(block.toString(), shellScope));
+            LoopShell.printResult(Loop.evalClassOrFunction(block.toString(), shellScope));
             block = null;
             continue;
           }
@@ -71,13 +71,14 @@ public class LoopShell {
         }
 
         if (rawLine == null) {
-          quit(reader);
+          LoopShell.quit(reader);
         }
 
-        //noinspection ConstantConditions
-        String line = rawLine.trim();
-        if (line.isEmpty())
+        // noinspection ConstantConditions
+        final String line = rawLine.trim();
+        if (line.isEmpty()) {
           continue;
+        }
 
         // Add a require import.
         if (line.startsWith("require ")) {
@@ -87,17 +88,18 @@ public class LoopShell {
         }
 
         if (line.startsWith(":q") || line.startsWith(":quit")) {
-          quit(reader);
+          LoopShell.quit(reader);
         }
 
         if (line.startsWith(":h") || line.startsWith(":help")) {
-          printHelp();
+          LoopShell.printHelp();
         }
 
         if (line.startsWith(":run")) {
-          String[] split = line.split("[ ]+", 2);
-          if (split.length < 2 || !split[1].endsWith(".loop"))
+          final String[] split = line.split("[ ]+", 2);
+          if (split.length < 2 || !split[1].endsWith(".loop")) {
             System.out.println("You must specify a .loop file to run.");
+          }
           Loop.run(split[1]);
           continue;
         }
@@ -107,60 +109,60 @@ public class LoopShell {
           shellScope = new Unit(null, ModuleDecl.SHELL);
           main = new FunctionDecl("main", null);
           shellScope.declare(main);
-          shellContext = new HashMap<String, Object>();
+          LoopShell.shellContext = new HashMap<String, Object>();
           continue;
         }
         if (line.startsWith(":i") || line.startsWith(":imports")) {
-          for (RequireDecl requireDecl : shellScope.imports()) {
+          for (final RequireDecl requireDecl : shellScope.imports()) {
             System.out.println(requireDecl.toSymbol());
           }
           System.out.println();
           continue;
         }
         if (line.startsWith(":f") || line.startsWith(":functions")) {
-          for (FunctionDecl functionDecl : shellScope.functions()) {
-            StringBuilder args = new StringBuilder();
-            List<Node> children = functionDecl.arguments().children();
+          for (final FunctionDecl functionDecl : shellScope.functions()) {
+            final StringBuilder args = new StringBuilder();
+            final List<Node> children = functionDecl.arguments().children();
             for (int i = 0, childrenSize = children.size(); i < childrenSize; i++) {
-              Node arg = children.get(i);
+              final Node arg = children.get(i);
               args.append(arg.toSymbol());
 
-              if (i < childrenSize - 1)
+              if (i < childrenSize - 1) {
                 args.append(", ");
+              }
             }
 
-            System.out.println(functionDecl.name()
-                + ": (" + args.toString() + ")"
-                + (functionDecl.patternMatching ? " #pattern-matching" : "")
-            );
+            System.out.println(functionDecl.name() + ": (" + args.toString() + ")"
+                + (functionDecl.patternMatching ? " #pattern-matching" : ""));
           }
           System.out.println();
           continue;
         }
         if (line.startsWith(":t") || line.startsWith(":type")) {
-          String[] split = line.split("[ ]+", 2);
+          final String[] split = line.split("[ ]+", 2);
           if (split.length <= 1) {
             System.out.println("Give me an expression to determine the type for.\n");
             continue;
           }
 
-          Object result = evalInFunction(split[1], main, shellScope, false);
-          printTypeOf(result);
+          final Object result = LoopShell.evalInFunction(split[1], main, shellScope, false);
+          LoopShell.printTypeOf(result);
           continue;
         }
 
         if (line.startsWith(":javatype")) {
-          String[] split = line.split("[ ]+", 2);
+          final String[] split = line.split("[ ]+", 2);
           if (split.length <= 1) {
             System.out.println("Give me an expression to determine the type for.\n");
             continue;
           }
 
-          Object result = evalInFunction(split[1], main, shellScope, false);
-          if (result instanceof LoopError)
+          final Object result = LoopShell.evalInFunction(split[1], main, shellScope, false);
+          if (result instanceof LoopError) {
             System.out.println(result.toString());
-          else
+          } else {
             System.out.println(result == null ? "null" : result.getClass().getName());
+          }
           continue;
         }
 
@@ -169,9 +171,10 @@ public class LoopShell {
           inFunction = true;
           block = new StringBuilder(line).append('\n');
           continue;
-        } else if (isDangling(line)) {
-          if (block == null)
+        } else if (LoopShell.isDangling(line)) {
+          if (block == null) {
             block = new StringBuilder();
+          }
 
           block.append(line).append('\n');
           continue;
@@ -187,19 +190,19 @@ public class LoopShell {
 
         // OK execute expression.
         try {
-          printResult(evalInFunction(rawLine, main, shellScope, true));
-        } catch (ClassCastException e) {
+          LoopShell.printResult(LoopShell.evalInFunction(rawLine, main, shellScope, true));
+        } catch (final ClassCastException e) {
           StackTraceSanitizer.cleanForShell(e);
           System.out.println("#error: " + e.getMessage());
           System.out.println();
-        } catch (RuntimeException e) {
+        } catch (final RuntimeException e) {
           StackTraceSanitizer.cleanForShell(e);
           e.printStackTrace();
           System.out.println();
         }
 
       } while (true);
-    } catch (IOException e) {
+    } catch (final IOException e) {
       System.err.println("Something went wrong =(");
       reader.getTerminal().reset();
       System.exit(1);
@@ -220,26 +223,25 @@ public class LoopShell {
     System.out.println("  Hint :h is short for :help, etc.");
   }
 
-  private static void printTypeOf(Object result) {
-    if (result instanceof LoopError)
+  private static void printTypeOf(final Object result) {
+    if (result instanceof LoopError) {
       System.out.println(result.toString());
-    else if (result instanceof LoopObject)
-      System.out.println(((LoopObject)result).getType());
-    else if (result instanceof Closure)
-      System.out.println("#function: " + ((Closure)result).name);
-    else
+    } else if (result instanceof LoopObject) {
+      System.out.println(((LoopObject) result).getType());
+    } else if (result instanceof Closure) {
+      System.out.println("#function: " + ((Closure) result).name);
+    } else {
       System.out.println(result == null ? "Nothing" : "#java: " + result.getClass().getName());
+    }
   }
 
-  private static Object evalInFunction(String rawLine,
-                                       FunctionDecl func,
-                                       Unit shellScope,
-                                       boolean addToWhereBlock) {
+  private static Object evalInFunction(String rawLine, final FunctionDecl func, final Unit shellScope,
+      final boolean addToWhereBlock) {
     rawLine = rawLine.trim() + '\n';
-    Executable executable = new Executable(new StringReader(rawLine));
+    final Executable executable = new Executable(new StringReader(rawLine));
     Node parsedLine;
     try {
-      Parser parser = new Parser(new Tokenizer(rawLine).tokenize(), shellScope);
+      final Parser parser = new Parser(new Tokenizer(rawLine).tokenize(), shellScope);
       parsedLine = parser.line();
       if (parsedLine == null || !parser.getErrors().isEmpty()) {
         executable.printErrors(parser.getErrors());
@@ -251,19 +253,21 @@ public class LoopShell {
       // vars declared in the lhs.
       if (parsedLine instanceof Assignment) {
         new Reducer(parsedLine).reduce();
-        Assignment assignment = (Assignment) parsedLine;
+        final Assignment assignment = (Assignment) parsedLine;
 
         // Strip the lhs of the assignment if this is a simple variable setter
         // as that will happen after the fact in a where-block.
         // However we still do have Assignment nodes that assign "in-place", i.e.
         // mutate the state of existing variables (example: a.b = c), and these need
         // to continue untouched.
-        if (assignment.lhs() instanceof Variable)
+        if (assignment.lhs() instanceof Variable) {
           func.children().add(assignment.rhs());
-        else
+        } else {
           func.children().add(parsedLine);
-      } else
+        }
+      } else {
         func.children().add(parsedLine);
+      }
 
       // Compress nodes and eliminate redundancies.
       new Reducer(func).reduce();
@@ -277,66 +281,69 @@ public class LoopShell {
 
         return "";
       }
-    } catch (Exception e) {
+    } catch (final Exception e) {
       e.printStackTrace();
       return new LoopError("malformed expression " + rawLine);
     }
 
     try {
-      Object result = Loop.safeEval(executable, null);
+      final Object result = Loop.safeEval(executable, null);
 
       if (addToWhereBlock && parsedLine instanceof Assignment) {
-        Assignment assignment = (Assignment) parsedLine;
+        final Assignment assignment = (Assignment) parsedLine;
 
         boolean shouldReplace = false, shouldAddToWhere = true;
         if (assignment.lhs() instanceof Variable) {
-          String name = ((Variable) assignment.lhs()).name;
-          shellContext.put(name, result);
+          final String name = ((Variable) assignment.lhs()).name;
+          LoopShell.shellContext.put(name, result);
 
           // Look up the value of the RHS of the variable from the shell context,
           // if this is the second reference to the same variable.
-          assignment.setRhs(new Parser(new Tokenizer(
-              "`loop.LoopShell`.shellObtain('" + name + "')").tokenize()).parse());
+          assignment.setRhs(new Parser(new Tokenizer("`loop.LoopShell`.shellObtain('" + name + "')").tokenize())
+              .parse());
           shouldReplace = true;
-        } else
-          shouldAddToWhere = false;   // Do not add state-mutating assignments to where block.
+        } else {
+          shouldAddToWhere = false; // Do not add state-mutating assignments to where block.
+        }
 
         // If this assignment is already present in the current scope, we should replace it.
-        if (shouldReplace)
-          for (Iterator<Node> iterator = func.whereBlock().iterator(); iterator.hasNext(); ) {
-            Node node = iterator.next();
+        if (shouldReplace) {
+          for (final Iterator<Node> iterator = func.whereBlock().iterator(); iterator.hasNext();) {
+            final Node node = iterator.next();
             if (node instanceof Assignment && ((Assignment) node).lhs() instanceof Variable) {
               iterator.remove();
             }
           }
+        }
 
-        if (shouldAddToWhere)
+        if (shouldAddToWhere) {
           func.declareLocally(parsedLine);
+        }
       }
 
       return result;
     } finally {
-      ModuleLoader.INSTANCE.reset();     // Cleans up the loaded classes.
+      ModuleLoader.INSTANCE.reset(); // Cleans up the loaded classes.
     }
   }
 
-  private static void printResult(Object result) {
+  private static void printResult(final Object result) {
     if (result instanceof Closure) {
-      Closure fun = (Closure) result;
+      final Closure fun = (Closure) result;
       System.out.println("#function: " + fun.name);
     } else if (result instanceof Set) {
-      String r = result.toString();
+      final String r = result.toString();
       System.out.println('{' + r.substring(1, r.length() - 1) + '}');
-    }
-    else
+    } else {
       System.out.println(result == null ? "#nothing" : result);
+    }
   }
 
-  private static boolean isLoadCommand(String line) {
+  private static boolean isLoadCommand(final String line) {
     return line.startsWith(":run");
   }
 
-  private static void quit(ConsoleReader reader) throws Exception {
+  private static void quit(final ConsoleReader reader) throws Exception {
     reader.getTerminal().restore();
 
     System.out.println("Bye.");
@@ -346,63 +353,60 @@ public class LoopShell {
   // For tracking multiline expressions.
   private static int braces = 0, brackets = 0, parens = 0;
 
-  private static boolean isDangling(String line) {
-    for (Token token : new Tokenizer(line).tokenize()) {
+  private static boolean isDangling(final String line) {
+    for (final Token token : new Tokenizer(line).tokenize()) {
       switch (token.kind) {
-        case LBRACE:
-          braces++;
-          break;
-        case LBRACKET:
-          brackets++;
-          break;
-        case LPAREN:
-          parens++;
-          break;
-        case RBRACE:
-          braces--;
-          break;
-        case RBRACKET:
-          brackets--;
-          break;
-        case RPAREN:
-          parens--;
-          break;
+      case LBRACE:
+        LoopShell.braces++;
+        break;
+      case LBRACKET:
+        LoopShell.brackets++;
+        break;
+      case LPAREN:
+        LoopShell.parens++;
+        break;
+      case RBRACE:
+        LoopShell.braces--;
+        break;
+      case RBRACKET:
+        LoopShell.brackets--;
+        break;
+      case RPAREN:
+        LoopShell.parens--;
+        break;
+      default:
+        // Do nothing
       }
     }
 
-    return braces > 0 || brackets > 0 || parens > 0;
+    return LoopShell.braces > 0 || LoopShell.brackets > 0 || LoopShell.parens > 0;
   }
 
   private static class MetaCommandCompleter implements Completer {
-    private final List<String> commands = Arrays.asList(
-        ":help",
-        ":run",
-        ":quit",
-        ":reset",
-        ":type",
-        ":imports",
-        ":javatype",
-        ":functions"
-    );
+    private final List<String> commands = Arrays.asList(":help", ":run", ":quit", ":reset", ":type", ":imports",
+        ":javatype", ":functions");
 
     private final FileNameCompleter fileNameCompleter = new FileNameCompleter();
 
-    @Override public int complete(String buffer, int cursor, List<CharSequence> candidates) {
+    @Override
+    public int complete(String buffer, final int cursor, final List<CharSequence> candidates) {
       if (buffer == null) {
         buffer = "";
-      } else
+      } else {
         buffer = buffer.trim();
-
-      // See if we should chain to the filename completer first.
-      if (isLoadCommand(buffer)) {
-        String[] split = buffer.split("[ ]+");
-
-        // Always complete the first argument.
-        if (split.length > 1)
-          return fileNameCompleter.complete(split[split.length - 1], cursor, candidates);
       }
 
-      for (String command : commands) {
+      // See if we should chain to the filename completer first.
+      if (LoopShell.isLoadCommand(buffer)) {
+        final String[] split = buffer.split("[ ]+");
+
+        // Always complete the first argument.
+        if (split.length > 1) {
+          return this.fileNameCompleter.complete(split[split.length - 1], cursor, candidates);
+        }
+      }
+
+      for (final String command : this.commands) {
         if (command.startsWith(buffer)) {
           candidates.add(command.substring(buffer.length()) + ' ');
         }

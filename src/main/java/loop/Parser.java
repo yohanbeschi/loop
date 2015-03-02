@@ -1,21 +1,59 @@
 package loop;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import loop.Token.Kind;
-import loop.ast.*;
+import loop.ast.Assignment;
+import loop.ast.BigDecimalLiteral;
+import loop.ast.BigIntegerLiteral;
+import loop.ast.BinaryOp;
+import loop.ast.BooleanLiteral;
+import loop.ast.Call;
+import loop.ast.CallArguments;
+import loop.ast.CallChain;
+import loop.ast.ClassDecl;
+import loop.ast.Comprehension;
+import loop.ast.Computation;
+import loop.ast.ConstructorCall;
+import loop.ast.Dereference;
+import loop.ast.DestructuringPair;
+import loop.ast.DoubleLiteral;
+import loop.ast.FloatLiteral;
+import loop.ast.Guard;
+import loop.ast.IndexIntoList;
+import loop.ast.InlineListDef;
+import loop.ast.InlineMapDef;
+import loop.ast.IntLiteral;
+import loop.ast.JavaLiteral;
+import loop.ast.ListDestructuringPattern;
+import loop.ast.ListRange;
+import loop.ast.ListStructurePattern;
+import loop.ast.LongLiteral;
+import loop.ast.MapPattern;
+import loop.ast.MemberAccess;
+import loop.ast.Node;
+import loop.ast.OtherwiseGuard;
+import loop.ast.PatternRule;
+import loop.ast.PrivateField;
+import loop.ast.RegexLiteral;
+import loop.ast.StringLiteral;
+import loop.ast.StringPattern;
+import loop.ast.TernaryIfExpression;
+import loop.ast.TernaryUnlessExpression;
+import loop.ast.TypeLiteral;
+import loop.ast.Variable;
+import loop.ast.WildcardPattern;
 import loop.ast.script.ArgDeclList;
 import loop.ast.script.FunctionDecl;
 import loop.ast.script.ModuleDecl;
 import loop.ast.script.RequireDecl;
 import loop.ast.script.Unit;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 /**
- * Takes the tokenized form of a raw string and converts it to a CoffeeScript parse tree (an
- * optimized form of its AST).
+ * Takes the tokenized form of a raw string and converts it to a CoffeeScript parse tree (an optimized form of its AST).
  *
  * @author dhanji@gmail.com (Dhanji R. Prasanna)
  */
@@ -32,44 +70,44 @@ public class Parser {
   private static final Set<Token.Kind> LEFT_ASSOCIATIVE = new HashSet<Token.Kind>();
 
   static {
-    RIGHT_ASSOCIATIVE.add(Token.Kind.PLUS);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.MINUS);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.DIVIDE);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.STAR);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.MODULUS);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.PLUS);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.MINUS);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.DIVIDE);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.STAR);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.MODULUS);
 
-    RIGHT_ASSOCIATIVE.add(Token.Kind.AND);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.OR);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.NOT);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.EQUALS);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.LEQ);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.GEQ);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.LESSER);
-    RIGHT_ASSOCIATIVE.add(Token.Kind.GREATER);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.AND);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.OR);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.NOT);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.EQUALS);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.LEQ);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.GEQ);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.LESSER);
+    Parser.RIGHT_ASSOCIATIVE.add(Token.Kind.GREATER);
 
-    LEFT_ASSOCIATIVE.add(Token.Kind.DOT);
-    LEFT_ASSOCIATIVE.add(Token.Kind.UNARROW);
+    Parser.LEFT_ASSOCIATIVE.add(Token.Kind.DOT);
+    Parser.LEFT_ASSOCIATIVE.add(Token.Kind.UNARROW);
   }
 
-  public Parser(List<Token> tokens) {
+  public Parser(final List<Token> tokens) {
     this.tokens = tokens;
   }
 
-  public Parser(List<Token> tokens, Unit shellScope) {
+  public Parser(final List<Token> tokens, final Unit shellScope) {
     this.tokens = tokens;
     this.scope = shellScope;
   }
 
   public List<AnnotatedError> getErrors() {
-    return errors;
+    return this.errors;
   }
 
-  public void addError(String message, Token token) {
-    errors.add(new StaticError(message, token));
+  public void addError(final String message, final Token token) {
+    this.errors.add(new StaticError(message, token));
   }
 
-  public void addError(String message, int line, int column) {
-    errors.add(new StaticError(message, line, column));
+  public void addError(final String message, final int line, final int column) {
+    this.errors.add(new StaticError(message, line, column));
   }
 
   /**
@@ -99,43 +137,42 @@ public class Parser {
    * parse := module | require | line
    */
   public Node parse() {
-    Node parsed = require();
+    Node parsed = this.require();
     if (null == parsed) {
-      parsed = module();
+      parsed = this.module();
     }
     if (null == parsed) {
-      parsed = line();
+      parsed = this.line();
     }
 
-    return last = parsed;
+    return this.last = parsed;
   }
 
   /**
-   * The top level parsing rule. Do not use parse() to parse entire programs, it is more for
-   * one-line expressions.
+   * The top level parsing rule. Do not use parse() to parse entire programs, it is more for one-line expressions.
    * <p/>
    * script := module? require* (functionDecl | classDecl)* (computation EOL)*
    */
-  public Unit script(String file) {
-    chewEols();
+  public Unit script(final String file) {
+    this.chewEols();
 
-    ModuleDecl module = module();
-    if (null == module)
+    ModuleDecl module = this.module();
+    if (null == module) {
       module = ModuleDecl.DEFAULT;
+    }
 
-    chewEols();
+    this.chewEols();
 
-    Unit unit = new Unit(file, module);
-    scope = unit;
+    final Unit unit = new Unit(file, module);
+    this.scope = unit;
     RequireDecl require;
     do {
-      require = require();
-      chewEols();
+      require = this.require();
+      this.chewEols();
 
       if (null != require) {
         if (unit.imports().contains(require) && require.alias == null) {
-          addError("Duplicate module import: " + require.toSymbol(),
-              require.sourceLine, require.sourceColumn);
+          this.addError("Duplicate module import: " + require.toSymbol(), require.sourceLine, require.sourceColumn);
           throw new LoopCompileException();
         }
 
@@ -146,26 +183,23 @@ public class Parser {
     FunctionDecl function;
     ClassDecl classDecl = null;
     do {
-      function = functionDecl();
+      function = this.functionDecl();
       if (function == null) {
-        classDecl = classDecl();
+        classDecl = this.classDecl();
       }
 
-      chewEols();
+      this.chewEols();
 
       if (null != function) {
         if (unit.resolveFunction(function.name(), false) != null) {
-          addError("Duplicate function definition: " + function.name(),
-              function.sourceLine,
-              function.sourceColumn);
+          this.addError("Duplicate function definition: " + function.name(), function.sourceLine, function.sourceColumn);
           throw new LoopCompileException();
         }
 
         unit.declare(function);
       } else if (null != classDecl) {
         if (unit.getType(classDecl.name) != null) {
-          addError("Duplicate type definition: " + classDecl.name,
-              classDecl.sourceLine, classDecl.sourceColumn);
+          this.addError("Duplicate type definition: " + classDecl.name, classDecl.sourceLine, classDecl.sourceColumn);
           throw new LoopCompileException();
         }
 
@@ -176,27 +210,30 @@ public class Parser {
 
     // Now slurp up any freeform expressions into the module initializer.
     Node expression;
-    while ((expression = computation()) != null) {
+    while ((expression = this.computation()) != null) {
       unit.addToInitializer(expression);
-      if (match(Kind.EOL) == null)
+      if (this.match(Kind.EOL) == null) {
         break;
-      chewEols();
+      }
+      this.chewEols();
     }
 
-    chewEols();
-    if (i < tokens.size() && errors.isEmpty()) {
-      addError("Expected end of script, but additional statements found", tokens.get(i));
+    this.chewEols();
+    if (this.i < this.tokens.size() && this.errors.isEmpty()) {
+      this.addError("Expected end of script, but additional statements found", this.tokens.get(this.i));
       throw new LoopCompileException();
     }
 
-    scope = null;
+    this.scope = null;
     return unit;
   }
 
   private void chewEols() {
     // Chew up end-of-lines.
-    //noinspection StatementWithEmptyBody
-    while (match(Token.Kind.EOL) != null) ;
+    // noinspection StatementWithEmptyBody
+    while (this.match(Token.Kind.EOL) != null) {
+      ;
+    }
   }
 
   /*** Class parsing rules ***/
@@ -205,40 +242,39 @@ public class Parser {
    * Type declaration with inline constructors.
    */
   public ClassDecl classDecl() {
-    boolean isImmutable = match(Kind.IMMUTABLE) != null;
-    if (match(Kind.CLASS) == null) {
+    final boolean isImmutable = this.match(Kind.IMMUTABLE) != null;
+    if (this.match(Kind.CLASS) == null) {
       return null;
     }
 
-    List<Token> className = match(Kind.TYPE_IDENT);
+    final List<Token> className = this.match(Kind.TYPE_IDENT);
     if (null == className) {
-      addError("Expected type identifier (Hint: Types must be upper CamelCase)", tokens.get(i));
+      this.addError("Expected type identifier (Hint: Types must be upper CamelCase)", this.tokens.get(this.i));
       throw new LoopCompileException();
     }
 
-    if (null == match(Kind.ARROW, Kind.LBRACE)) {
-      addError("Expected '->' after type identifier", tokens.get(i));
+    if (null == this.match(Kind.ARROW, Kind.LBRACE)) {
+      this.addError("Expected '->' after type identifier", this.tokens.get(this.i));
       throw new LoopCompileException();
     }
 
-    ClassDecl classDecl = new ClassDecl(className.iterator().next().value, isImmutable)
-        .sourceLocation(className);
+    final ClassDecl classDecl = new ClassDecl(className.iterator().next().value, isImmutable).sourceLocation(className);
 
     Node line;
     do {
-      chewEols();
-      withIndent();
+      this.chewEols();
+      this.withIndent();
 
-      line = line();
+      line = this.line();
       if (line != null) {
         classDecl.add(line);
       }
 
-      chewEols();
+      this.chewEols();
     } while (line != null);
 
-    if (!endOfInput() && match(Token.Kind.RBRACE) == null) {
-      addError("Expected end of type, additional statements found", tokens.get(i));
+    if (!this.endOfInput() && this.match(Token.Kind.RBRACE) == null) {
+      this.addError("Expected end of type, additional statements found", this.tokens.get(this.i));
       throw new LoopCompileException();
     }
 
@@ -249,11 +285,11 @@ public class Parser {
    * Named function parsing rule.
    */
   public FunctionDecl functionDecl() {
-    return internalFunctionDecl(false);
+    return this.internalFunctionDecl(false);
   }
 
   private FunctionDecl anonymousFunctionDecl() {
-    return internalFunctionDecl(true);
+    return this.internalFunctionDecl(true);
   }
 
   /**
@@ -263,117 +299,124 @@ public class Parser {
    * <p/>
    * functionDecl := (PRIVATE_FIELD | IDENT) argDeclList? ('in' SYMBOL)? 'except' IDENT ARROW EOL (INDENT+ line EOL)
    * <p/>
-   * patternFunctionDecl := (PRIVATE_FIELD | IDENT) argDeclList? ('in' SYMBOL)? 'except' IDENT HASHROCKET EOL (INDENT+ line EOL)*
+   * patternFunctionDecl := (PRIVATE_FIELD | IDENT) argDeclList? ('in' SYMBOL)? 'except' IDENT HASHROCKET EOL (INDENT+
+   * line EOL)*
    */
-  private FunctionDecl internalFunctionDecl(boolean anonymous) {
+  private FunctionDecl internalFunctionDecl(final boolean anonymous) {
     List<Token> funcName = null;
     List<Token> startTokens = null;
     if (!anonymous) {
-      funcName = match(Token.Kind.PRIVATE_FIELD);
+      funcName = this.match(Token.Kind.PRIVATE_FIELD);
 
-      if (null == funcName)
-        funcName = match(Token.Kind.IDENT);
+      if (null == funcName) {
+        funcName = this.match(Token.Kind.IDENT);
+      }
 
       // Not a function
       if (null == funcName) {
         return null;
       }
     } else {
-      if ((startTokens = match(Token.Kind.ANONYMOUS_TOKEN)) == null)
+      if ((startTokens = this.match(Token.Kind.ANONYMOUS_TOKEN)) == null) {
         return null;
+      }
     }
 
     // Scan ahead to ensure this is a function decl, coz once we start parsing the arg list
     // we can't go back.
     boolean isFunction = false;
-    for (int k = i; k - i < 200 /* panic */ && k < tokens.size(); k++) {
-      Token token = tokens.get(k);
-      if ((token.kind == Kind.ARROW || token.kind == Kind.HASHROCKET)
-          && k < tokens.size() + 1
-          && tokens.get(k + 1).kind == Kind.LBRACE) {
+    for (int k = this.i; k - this.i < 200 /* panic */&& k < this.tokens.size(); k++) {
+      final Token token = this.tokens.get(k);
+      if ((token.kind == Kind.ARROW || token.kind == Kind.HASHROCKET) && k < this.tokens.size() + 1
+          && this.tokens.get(k + 1).kind == Kind.LBRACE) {
         isFunction = true;
         break;
       }
-      if (token.kind == Kind.LBRACE || token.kind == Kind.EOL)
+      if (token.kind == Kind.LBRACE || token.kind == Kind.EOL) {
         break;
+      }
     }
 
     // Refuse to proceed if there does not appear to be a '->' at the end of the current line.
     if (!isFunction) {
       // Reset the parser in case we've already parsed an identifier.
-      i--;
+      this.i--;
       return null;
     }
 
-    ArgDeclList arguments = argDeclList();
-    String name = anonymous ? null : funcName.get(0).value;
+    final ArgDeclList arguments = this.argDeclList();
+    final String name = anonymous ? null : funcName.get(0).value;
     startTokens = funcName != null ? funcName : startTokens;
-    FunctionDecl functionDecl = new FunctionDecl(name, arguments).sourceLocation(startTokens);
+    final FunctionDecl functionDecl = new FunctionDecl(name, arguments).sourceLocation(startTokens);
 
     // We need to set the module name here because closures are not declared as
     // top level functions in the module.
-    if (anonymous)
-      functionDecl.setModule(scope.getModuleName());
+    if (anonymous) {
+      functionDecl.setModule(this.scope.getModuleName());
+    }
 
     // Before we match the start of the function, allow for cell declaration.
-    List<Token> inCellTokens = match(Kind.IN, Kind.PRIVATE_FIELD);
+    final List<Token> inCellTokens = this.match(Kind.IN, Kind.PRIVATE_FIELD);
     if (inCellTokens != null) {
       functionDecl.cell = inCellTokens.get(1).value;
     }
 
     // Before we match the arrow and start the function, slurp up any exception handling logic.
-    List<Token> exceptHandlerTokens = match(Kind.IDENT, Kind.IDENT);
-    if (exceptHandlerTokens == null)
-      exceptHandlerTokens = match(Kind.IDENT, Kind.PRIVATE_FIELD);
+    List<Token> exceptHandlerTokens = this.match(Kind.IDENT, Kind.IDENT);
+    if (exceptHandlerTokens == null) {
+      exceptHandlerTokens = this.match(Kind.IDENT, Kind.PRIVATE_FIELD);
+    }
 
     if (exceptHandlerTokens != null) {
-      Token exceptToken = exceptHandlerTokens.get(0);
+      final Token exceptToken = exceptHandlerTokens.get(0);
       if (!RestrictedKeywords.EXCEPT.equals(exceptToken.value)) {
-        addError("Expected 'expect' keyword after function signature", exceptToken);
+        this.addError("Expected 'expect' keyword after function signature", exceptToken);
       }
       functionDecl.exceptionHandler = exceptHandlerTokens.get(1).value;
     }
 
     // If it doesn't have a thin or fat arrow, then it's not a function either.
-    if (match(Token.Kind.ARROW, Token.Kind.LBRACE) == null) {
+    if (this.match(Token.Kind.ARROW, Token.Kind.LBRACE) == null) {
       // Fat arrow, pattern matcher.
-      if (match(Token.Kind.HASHROCKET, Token.Kind.LBRACE) == null) {
+      if (this.match(Token.Kind.HASHROCKET, Token.Kind.LBRACE) == null) {
         return null;
-      } else
-        return patternMatchingFunctionDecl(functionDecl);
+      } else {
+        return this.patternMatchingFunctionDecl(functionDecl);
+      }
     }
 
     // Optionally match eols here.
-    chewEols();
+    this.chewEols();
 
     Node line;
 
     // Absorb indentation level.
-    withIndent();
+    this.withIndent();
 
     boolean hasBody = false;
-    while ((line = line()) != null) {
+    while ((line = this.line()) != null) {
       hasBody = true;
       functionDecl.add(line);
 
       // Multiple lines are allowed if terminated by a comma.
-      if (match(Kind.EOL) == null)
+      if (this.match(Kind.EOL) == null) {
         break;
+      }
 
       // EOLs are optional (probably should discourage this though).
-      withIndent();
+      this.withIndent();
     }
 
-
     if (hasBody) {
-      chewEols();
+      this.chewEols();
 
       // Look for a where block attached to this function.
-      whereBlock(functionDecl);
+      this.whereBlock(functionDecl);
 
       // A function body must be terminated by } (this is ensured by the token-stream rewriter)
-      if (!endOfInput() && match(Token.Kind.RBRACE) == null) {
-        addError("Expected end of function, additional statements found (did you mean '=>')", tokens.get(i));
+      if (!this.endOfInput() && this.match(Token.Kind.RBRACE) == null) {
+        this.addError("Expected end of function, additional statements found (did you mean '=>')",
+            this.tokens.get(this.i));
         throw new LoopCompileException();
       }
     }
@@ -381,46 +424,54 @@ public class Parser {
     return functionDecl;
   }
 
-  private FunctionDecl patternMatchingFunctionDecl(FunctionDecl functionDecl) {
-    chewEols();
+  private FunctionDecl patternMatchingFunctionDecl(final FunctionDecl functionDecl) {
+    this.chewEols();
     PatternRule rule = new PatternRule().sourceLocation(functionDecl);
     do {
-      withIndent();
+      this.withIndent();
 
       // Detect pattern first. Maps supercede lists.
-      Node pattern = emptyMapPattern();
-      if (null == pattern)
-        pattern = emptyListPattern();
+      Node pattern = this.emptyMapPattern();
+      if (null == pattern) {
+        pattern = this.emptyListPattern();
+      }
 
-      if (null == pattern)
-        pattern = listOrMapPattern();
+      if (null == pattern) {
+        pattern = this.listOrMapPattern();
+      }
 
-      if (null == pattern)
-        pattern = stringGroupPattern();
+      if (null == pattern) {
+        pattern = this.stringGroupPattern();
+      }
 
-      if (null == pattern)
-        pattern = regexLiteral();
+      if (null == pattern) {
+        pattern = this.regexLiteral();
+      }
 
-      if (pattern == null)
-        pattern = term();
+      if (pattern == null) {
+        pattern = this.term();
+      }
 
       // Try "otherwise" default fall thru.
       if (pattern == null) {
-        List<Token> starToken = match(Kind.STAR);
-        if (starToken != null)
+        final List<Token> starToken = this.match(Kind.STAR);
+        if (starToken != null) {
           pattern = new WildcardPattern().sourceLocation(starToken);
+        }
       }
 
       // Look for a where block at the end of this pattern matching decl.
-      int currentToken = i;
-      if (pattern == null)
-        if (whereBlock(functionDecl)) {
-          if (endOfInput() || match(Token.Kind.RBRACE) != null)
+      final int currentToken = this.i;
+      if (pattern == null) {
+        if (this.whereBlock(functionDecl)) {
+          if (this.endOfInput() || this.match(Token.Kind.RBRACE) != null) {
             break;
+          }
         }
+      }
 
       if (pattern == null) {
-        addError("Pattern syntax error. Expected a pattern rule", tokens.get(currentToken));
+        this.addError("Pattern syntax error. Expected a pattern rule", this.tokens.get(currentToken));
         return null;
       }
 
@@ -428,62 +479,69 @@ public class Parser {
       rule.sourceLocation(pattern);
 
       boolean guarded = false;
-      while (match(Token.Kind.PIPE) != null) {
+      while (this.match(Token.Kind.PIPE) != null) {
         guarded = true;
 
-        Node guardExpression = computation();
-        if (guardExpression == null)
-          if (match(Token.Kind.ELSE) != null)
+        Node guardExpression = this.computation();
+        if (guardExpression == null) {
+          if (this.match(Token.Kind.ELSE) != null) {
             guardExpression = new OtherwiseGuard();
+          }
+        }
 
-        if (match(Token.Kind.ASSIGN) == null)
-          addError("Expected ':' after guard expression", tokens.get(i - 1));
+        if (this.match(Token.Kind.ASSIGN) == null) {
+          this.addError("Expected ':' after guard expression", this.tokens.get(this.i - 1));
+        }
 
-        Node line = line();
-        chewEols();
-        withIndent();
+        final Node line = this.line();
+        this.chewEols();
+        this.withIndent();
 
-        Guard guard = new Guard(guardExpression, line);
+        final Guard guard = new Guard(guardExpression, line);
         rule.add(guard);
       }
 
       if (!guarded) {
-        if (match(Kind.COMMA) == null) {
-          if (match(Token.Kind.ASSIGN) == null)
-            addError("Expected ':' after pattern", tokens.get(i));
-        } else
+        if (this.match(Kind.COMMA) == null) {
+          if (this.match(Token.Kind.ASSIGN) == null) {
+            this.addError("Expected ':' after pattern", this.tokens.get(this.i));
+          }
+        } else {
           continue;
+        }
 
-        rule.rhs = line();
-        chewEols();
+        rule.rhs = this.line();
+        this.chewEols();
       }
 
       functionDecl.add(rule);
       rule = new PatternRule().sourceLocation(functionDecl);
 
-      if (endOfInput() || match(Token.Kind.RBRACE) != null)
+      if (this.endOfInput() || this.match(Token.Kind.RBRACE) != null) {
         break;
+      }
     } while (true);
 
     functionDecl.patternMatching = true;
     return functionDecl;
   }
 
-  private boolean whereBlock(FunctionDecl functionDecl) {
-    withIndent();
+  private boolean whereBlock(final FunctionDecl functionDecl) {
+    this.withIndent();
     boolean hasWhere = false;
-    if (match(Token.Kind.WHERE) != null) {
+    if (this.match(Token.Kind.WHERE) != null) {
       FunctionDecl helperFunction = null;
       Node assignment;
       do {
-        chewEols();
-        withIndent();
+        this.chewEols();
+        this.withIndent();
 
-        assignment = variableAssignment();
-        if (null == assignment)
-          helperFunction = functionDecl();
+        assignment = this.variableAssignment();
+        if (null == assignment) {
+          helperFunction = this.functionDecl();
+        }
 
-        chewEols();
+        this.chewEols();
 
         if (null != helperFunction) {
           hasWhere = true;
@@ -499,19 +557,21 @@ public class Parser {
   }
 
   private Node stringGroupPattern() {
-    if (match(Token.Kind.LPAREN) == null)
+    if (this.match(Token.Kind.LPAREN) == null) {
       return null;
-    StringPattern pattern = new StringPattern();
+    }
+    final StringPattern pattern = new StringPattern();
 
     Node term;
-    while ((term = term()) != null) {
+    while ((term = this.term()) != null) {
       pattern.add(term);
-      if (match(Token.Kind.ASSIGN) == null)
+      if (this.match(Token.Kind.ASSIGN) == null) {
         break;
+      }
     }
 
-    if (match(Token.Kind.RPAREN) == null) {
-      addError("Expected ')' at end of string group pattern rule.", tokens.get(i - 1));
+    if (this.match(Token.Kind.RPAREN) == null) {
+      this.addError("Expected ')' at end of string group pattern rule.", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
@@ -519,57 +579,56 @@ public class Parser {
   }
 
   private Node emptyMapPattern() {
-    List<Token> startTokens = match(Kind.LBRACKET, Kind.ASSIGN, Kind.RBRACKET);
-    return startTokens != null
-        ? new MapPattern().sourceLocation(startTokens) : null;
+    final List<Token> startTokens = this.match(Kind.LBRACKET, Kind.ASSIGN, Kind.RBRACKET);
+    return startTokens != null ? new MapPattern().sourceLocation(startTokens) : null;
   }
 
   private Node emptyListPattern() {
-    List<Token> startTokens = match(Kind.LBRACKET, Kind.RBRACKET);
-    return startTokens != null
-        ? new ListDestructuringPattern().sourceLocation(startTokens) : null;
+    final List<Token> startTokens = this.match(Kind.LBRACKET, Kind.RBRACKET);
+    return startTokens != null ? new ListDestructuringPattern().sourceLocation(startTokens) : null;
   }
 
   /**
-   * listOrMapPattern := (LBRACKET term ((ASSIGN term)* | UNARROW term (COMMA term UNARROW term)*)
-   * RBRACKET)
+   * listOrMapPattern := (LBRACKET term ((ASSIGN term)* | UNARROW term (COMMA term UNARROW term)*) RBRACKET)
    */
   private Node listOrMapPattern() {
     Node pattern;
 
     // We should allow the possibility of matching a type identifier.
-    List<Token> type = match(Token.Kind.TYPE_IDENT);
+    final List<Token> type = this.match(Token.Kind.TYPE_IDENT);
     TypeLiteral typeLiteral = null;
     if (null != type) {
       typeLiteral = new TypeLiteral(type.get(0).value).sourceLocation(type);
     }
 
-    Token lbracketTokens = anyOf(Kind.LBRACKET, Kind.LBRACE);
-    if (lbracketTokens == null)
+    final Token lbracketTokens = this.anyOf(Kind.LBRACKET, Kind.LBRACE);
+    if (lbracketTokens == null) {
       return typeLiteral;
+    }
 
-    Node term = term();
+    Node term = this.term();
     if (term == null) {
-      addError("Expected term after '[' in pattern rule", tokens.get(i));
+      this.addError("Expected term after '[' in pattern rule", this.tokens.get(this.i));
       throw new LoopCompileException();
     }
 
     // This is a list denaturing rule.
-    if (match(Token.Kind.ASSIGN) != null) {
+    if (this.match(Token.Kind.ASSIGN) != null) {
       pattern = new ListDestructuringPattern().sourceLocation(lbracketTokens);
       pattern.add(term);
-      term = term();
+      term = this.term();
       if (term == null) {
-        addError("Expected term after ':' in list pattern rule", tokens.get(i - 1));
+        this.addError("Expected term after ':' in list pattern rule", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
       pattern.add(term);
 
-      while (match(Token.Kind.ASSIGN) != null)
-        pattern.add(term());
+      while (this.match(Token.Kind.ASSIGN) != null) {
+        pattern.add(this.term());
+      }
 
-      if (match(Token.Kind.RBRACKET) == null) {
-        addError("Expected ']' at end of list pattern rule", tokens.get(i - 1));
+      if (this.match(Token.Kind.RBRACKET) == null) {
+        this.addError("Expected ']' at end of list pattern rule", this.tokens.get(this.i - 1));
         return null;
       }
 
@@ -577,32 +636,33 @@ public class Parser {
     }
 
     // This is a list literal rule.
-    boolean endList = match(Token.Kind.RBRACKET) != null;
-    if (endList || match(Token.Kind.COMMA) != null) {
+    final boolean endList = this.match(Token.Kind.RBRACKET) != null;
+    if (endList || this.match(Token.Kind.COMMA) != null) {
       pattern = new ListStructurePattern().sourceLocation(lbracketTokens);
       pattern.add(term);
-      if (endList)
+      if (endList) {
         return pattern;
+      }
 
-      term = term();
+      term = this.term();
       if (null == term) {
-        addError("Expected term after ',' in list pattern rule", tokens.get(i - 1));
+        this.addError("Expected term after ',' in list pattern rule", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
       pattern.add(term);
 
-      while (match(Token.Kind.COMMA) != null) {
-        term = term();
+      while (this.match(Token.Kind.COMMA) != null) {
+        term = this.term();
         if (null == term) {
-          addError("Expected term after ',' in list pattern rule", tokens.get(i - 1));
+          this.addError("Expected term after ',' in list pattern rule", this.tokens.get(this.i - 1));
           throw new LoopCompileException();
         }
 
         pattern.add(term);
       }
 
-      if (match(Token.Kind.RBRACKET) == null) {
-        addError("Expected ']' at end of list pattern rule", tokens.get(i - 1));
+      if (this.match(Token.Kind.RBRACKET) == null) {
+        this.addError("Expected ']' at end of list pattern rule", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
@@ -611,28 +671,32 @@ public class Parser {
 
     // This is a map pattern.
     pattern = new MapPattern().sourceLocation(lbracketTokens);
-    if (typeLiteral != null)
+    if (typeLiteral != null) {
       pattern.add(typeLiteral);
+    }
 
-    if (match(Token.Kind.UNARROW) == null)
+    if (this.match(Token.Kind.UNARROW) == null) {
       throw new RuntimeException("Expected '<-' in object pattern rule");
+    }
 
-    if (!(term instanceof Variable))
-      throw new RuntimeException(
-          "Must select into a valid variable name in object pattern rule: " + term.toSymbol());
+    if (!(term instanceof Variable)) {
+      throw new RuntimeException("Must select into a valid variable name in object pattern rule: " + term.toSymbol());
+    }
 
-    Node rhs = term();
-    if (rhs == null)
+    Node rhs = this.term();
+    if (rhs == null) {
       throw new RuntimeException("Expected term after '<-' in object pattern rule");
+    }
     if (rhs instanceof Variable) {
       // See if we can keep slurping a dot-chain.
-      CallChain callChain = new CallChain();
+      final CallChain callChain = new CallChain();
       callChain.nullSafe(false);
       callChain.add(rhs);
-      while (match(Token.Kind.DOT) != null) {
-        Node variable = variable();
-        if (null == variable)
+      while (this.match(Token.Kind.DOT) != null) {
+        final Node variable = this.variable();
+        if (null == variable) {
           throw new RuntimeException("Expected term after '.' in object pattern rule");
+        }
         callChain.add(variable);
       }
 
@@ -641,25 +705,29 @@ public class Parser {
 
     pattern.add(new DestructuringPair(term, rhs).sourceLocation(term));
 
-    while (match(Token.Kind.COMMA) != null) {
-      term = variable();
-      if (null == term)
+    while (this.match(Token.Kind.COMMA) != null) {
+      term = this.variable();
+      if (null == term) {
         throw new RuntimeException("Expected variable after ',' in object pattern rule");
+      }
 
-      if (match(Token.Kind.UNARROW) == null)
+      if (this.match(Token.Kind.UNARROW) == null) {
         throw new RuntimeException("Expected '<-' in object pattern rule");
+      }
 
-      rhs = term();
-      if (rhs == null)
+      rhs = this.term();
+      if (rhs == null) {
         throw new RuntimeException("Expected term after '<-' in object pattern rule");
+      }
       if (rhs instanceof Variable) {
         // See if we can keep slurping a dot-chain.
-        CallChain callChain = new CallChain().sourceLocation(rhs);
+        final CallChain callChain = new CallChain().sourceLocation(rhs);
         callChain.add(rhs);
-        while (match(Token.Kind.DOT) != null) {
-          Node variable = variable();
-          if (null == variable)
+        while (this.match(Token.Kind.DOT) != null) {
+          final Node variable = this.variable();
+          if (null == variable) {
             throw new RuntimeException("Expected term after '.' in object pattern rule");
+          }
           callChain.add(variable);
         }
 
@@ -669,26 +737,26 @@ public class Parser {
       pattern.add(new DestructuringPair(term, rhs).sourceLocation(term));
     }
 
-    if (match(Token.Kind.RBRACKET) == null && match(Kind.RBRACE) == null) {
+    if (this.match(Token.Kind.RBRACKET) == null && this.match(Kind.RBRACE) == null) {
       throw new RuntimeException("Expected '}' at end of object pattern");
     }
 
-    return rewriteObjectPattern(pattern);
+    return this.rewriteObjectPattern(pattern);
   }
 
-  private Node rewriteObjectPattern(Node pattern) {
-    for (Node node : pattern.children()) {
+  private Node rewriteObjectPattern(final Node pattern) {
+    for (final Node node : pattern.children()) {
       if (node instanceof DestructuringPair) {
-        DestructuringPair pair = (DestructuringPair) node;
+        final DestructuringPair pair = (DestructuringPair) node;
 
         // We need to rewrite the chain of variables as a chain of property calls.
         if (pair.rhs instanceof CallChain) {
-          CallChain chain = (CallChain) pair.rhs;
-          CallChain rewritten = new CallChain();
+          final CallChain chain = (CallChain) pair.rhs;
+          final CallChain rewritten = new CallChain();
           rewritten.add(chain.children().remove(0));
 
-          for (Node element : chain.children()) {
-            Variable var = (Variable) element;
+          for (final Node element : chain.children()) {
+            final Variable var = (Variable) element;
 
             rewritten.add(new Dereference(var.name).sourceLocation(var));
           }
@@ -704,40 +772,40 @@ public class Parser {
    * argDeclList := LPAREN IDENT (ASSIGN TYPE_IDENT)? (COMMA IDENT (ASSIGN TYPE_IDENT)? )* RPAREN
    */
   private ArgDeclList argDeclList() {
-    List<Token> lparenTokens = match(Kind.LPAREN);
+    final List<Token> lparenTokens = this.match(Kind.LPAREN);
     if (lparenTokens == null) {
       return null;
     }
 
-    List<Token> first = match(Token.Kind.IDENT);
+    final List<Token> first = this.match(Token.Kind.IDENT);
     if (null == first) {
-      if (null == match(Token.Kind.RPAREN)) {
-        addError("Expected ')' or identifier in function argument list", tokens.get(i - 1));
+      if (null == this.match(Token.Kind.RPAREN)) {
+        this.addError("Expected ')' or identifier in function argument list", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
       return new ArgDeclList().sourceLocation(lparenTokens);
     }
 
-    List<Token> optionalType = match(Token.Kind.ASSIGN, Token.Kind.TYPE_IDENT);
-    ArgDeclList arguments = new ArgDeclList().sourceLocation(lparenTokens);
+    List<Token> optionalType = this.match(Token.Kind.ASSIGN, Token.Kind.TYPE_IDENT);
+    final ArgDeclList arguments = new ArgDeclList().sourceLocation(lparenTokens);
 
     String firstTypeName = optionalType == null ? null : optionalType.get(1).value;
     arguments.add(new ArgDeclList.Argument(first.get(0).value, firstTypeName));
 
-    while (match(Token.Kind.COMMA) != null) {
-      List<Token> nextArg = match(Token.Kind.IDENT);
+    while (this.match(Token.Kind.COMMA) != null) {
+      final List<Token> nextArg = this.match(Token.Kind.IDENT);
       if (null == nextArg) {
-        addError("Expected identifier after ',' in function arguments", tokens.get(i - 1));
+        this.addError("Expected identifier after ',' in function arguments", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
-      optionalType = match(Token.Kind.ASSIGN, Token.Kind.TYPE_IDENT);
+      optionalType = this.match(Token.Kind.ASSIGN, Token.Kind.TYPE_IDENT);
       firstTypeName = optionalType == null ? null : optionalType.get(1).value;
 
       arguments.add(new ArgDeclList.Argument(nextArg.get(0).value, firstTypeName));
     }
 
-    if (match(Token.Kind.RPAREN) == null) {
-      addError("Expected ')' at end of function arguments", tokens.get(i - 1));
+    if (this.match(Token.Kind.RPAREN) == null) {
+      this.addError("Expected ')' at end of function arguments", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
@@ -748,17 +816,17 @@ public class Parser {
    * require := REQUIRE IDENT (DOT IDENT)* ('as' IDENT)? EOL
    */
   public RequireDecl require() {
-    if (match(Token.Kind.REQUIRE) == null) {
+    if (this.match(Token.Kind.REQUIRE) == null) {
       return null;
     }
 
-    List<Token> module = match(Kind.JAVA_LITERAL);
-    if (null == module)
-      module = match(Token.Kind.IDENT);
-    else {
-      if (match(Kind.EOL) == null) {
-        addError("Expected newline after require (are you trying to alias Java imports?)",
-            tokens.get(i - 1));
+    List<Token> module = this.match(Kind.JAVA_LITERAL);
+    if (null == module) {
+      module = this.match(Token.Kind.IDENT);
+    } else {
+      if (this.match(Kind.EOL) == null) {
+        this.addError("Expected newline after require (are you trying to alias Java imports?)",
+            this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
@@ -766,97 +834,95 @@ public class Parser {
     }
 
     if (null == module) {
-      addError("Expected module identifier", tokens.get(i - 1));
+      this.addError("Expected module identifier", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    List<String> requires = new ArrayList<String>();
+    final List<String> requires = new ArrayList<String>();
     requires.add(module.get(0).value);
 
     boolean aliased, javaImport = false;
-    while (match(Token.Kind.DOT) != null) {
-      module = match(Token.Kind.IDENT);
+    while (this.match(Token.Kind.DOT) != null) {
+      module = this.match(Token.Kind.IDENT);
       if (null == module) {
-        module = match(Kind.TYPE_IDENT);
+        module = this.match(Kind.TYPE_IDENT);
         javaImport = true;
       }
 
       if (null == module) {
-        addError("Expected module identifier part after '.'", tokens.get(i - 1));
+        this.addError("Expected module identifier part after '.'", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
       requires.add(module.get(0).value);
     }
 
-    List<Token> asToken = match(Kind.IDENT);
+    final List<Token> asToken = this.match(Kind.IDENT);
     aliased = asToken != null && RestrictedKeywords.AS.equals(asToken.get(0).value);
 
-    List<Token> aliasTokens = match(Kind.IDENT);
+    final List<Token> aliasTokens = this.match(Kind.IDENT);
     if (aliased) {
-      if (aliasedModules == null)
-        aliasedModules = new HashSet<String>();
+      if (this.aliasedModules == null) {
+        this.aliasedModules = new HashSet<String>();
+      }
 
       if (aliasTokens == null) {
-        addError("Expected module alias after '" + RestrictedKeywords.AS + "'", tokens.get(i - 1));
+        this.addError("Expected module alias after '" + RestrictedKeywords.AS + "'", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
       // Cache the aliases for some smart parsing of namespaced function calls.
-      aliasedModules.add(aliasTokens.get(0).value);
+      this.aliasedModules.add(aliasTokens.get(0).value);
     }
 
-    if (match(Token.Kind.EOL) == null) {
-      addError("Expected newline after require declaration", tokens.get(i - 1));
+    if (this.match(Token.Kind.EOL) == null) {
+      this.addError("Expected newline after require declaration", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
     // We also allow java imports outside using the backticks syntax.
-    String alias = aliased ? aliasTokens.get(0).value : null;
+    final String alias = aliased ? aliasTokens.get(0).value : null;
     if (javaImport) {
-      return new RequireDecl(requires.toString().replace(", ", "."), alias)
-          .sourceLocation(module);
+      return new RequireDecl(requires.toString().replace(", ", "."), alias).sourceLocation(module);
     }
 
-    return new RequireDecl(requires, alias)
-        .sourceLocation(module);
+    return new RequireDecl(requires, alias).sourceLocation(module);
   }
 
   /**
    * module := MODULE IDENT (DOT IDENT)* EOL
    */
   private ModuleDecl module() {
-    if (match(Token.Kind.MODULE) == null) {
+    if (this.match(Token.Kind.MODULE) == null) {
       return null;
     }
 
-    List<Token> module = match(Token.Kind.IDENT);
+    List<Token> module = this.match(Token.Kind.IDENT);
     if (null == module) {
-      addError("Expected module identifier after 'module' keyword", tokens.get(i - 1));
+      this.addError("Expected module identifier after 'module' keyword", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    List<String> modules = new ArrayList<String>();
+    final List<String> modules = new ArrayList<String>();
     modules.add(module.get(0).value);
 
-    while (match(Token.Kind.DOT) != null) {
-      module = match(Token.Kind.IDENT);
+    while (this.match(Token.Kind.DOT) != null) {
+      module = this.match(Token.Kind.IDENT);
       if (null == module) {
-        addError("Expected module identifier part after '.'", tokens.get(i - 1));
+        this.addError("Expected module identifier part after '.'", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
       modules.add(module.get(0).value);
     }
 
-    if (match(Token.Kind.EOL) == null) {
-      addError("Expected newline after module declaration", tokens.get(i - 1));
+    if (this.match(Token.Kind.EOL) == null) {
+      this.addError("Expected newline after module declaration", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
     return new ModuleDecl(modules).sourceLocation(module);
   }
-
 
   /*** In-function instruction parsing rules ***/
 
@@ -864,7 +930,7 @@ public class Parser {
    * line := assign
    */
   public Node line() {
-    return assign();
+    return this.assign();
   }
 
   /**
@@ -873,18 +939,19 @@ public class Parser {
    * variableAssignment := variable ASSIGN computation
    */
   private Node variableAssignment() {
-    List<Token> startTokens = match(Token.Kind.IDENT, Token.Kind.ASSIGN);
-    if (null == startTokens)
+    final List<Token> startTokens = this.match(Token.Kind.IDENT, Token.Kind.ASSIGN);
+    if (null == startTokens) {
       return null;
+    }
 
-    Node left = new Variable(startTokens.get(0).value);
-    Node right = computation();
+    final Node left = new Variable(startTokens.get(0).value);
+    final Node right = this.computation();
     if (right == null) {
-      addError("Expected expression after ':' in assignment", tokens.get(i - 1));
+      this.addError("Expected expression after ':' in assignment", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    Assignment assignment = new Assignment();
+    final Assignment assignment = new Assignment();
     assignment.add(left);
     assignment.add(right);
     return assignment.sourceLocation(startTokens);
@@ -893,40 +960,40 @@ public class Parser {
   /**
    * This is really both "free standing expression" and "assignment".
    * <p/>
-   * assign := computation (ASSIGN (computation (IF computation | comprehension)?) | (IF computation
-   * THEN computation ELSE computation) )?
+   * assign := computation (ASSIGN (computation (IF computation | comprehension)?) | (IF computation THEN computation
+   * ELSE computation) )?
    */
   private Node assign() {
-    Node left = computation();
+    final Node left = this.computation();
     if (null == left) {
       return null;
     }
 
-    List<Token> assignTokens = match(Kind.ASSIGN);
+    final List<Token> assignTokens = this.match(Kind.ASSIGN);
     if (assignTokens == null) {
       return left;
     }
 
     // Ternary operator if-then-else
-    Node ifThenElse = ternaryIf();
+    final Node ifThenElse = this.ternaryIf();
     if (null != ifThenElse) {
       return new Assignment().add(left).add(ifThenElse);
     }
 
     // OTHERWISE-- continue processing a normal assignment.
-    Node right = computation();
+    final Node right = this.computation();
     if (null == right) {
-      addError("Expected expression after '=' assign operator", assignTokens.get(0));
+      this.addError("Expected expression after '=' assign operator", assignTokens.get(0));
       throw new LoopCompileException();
     }
 
     // Is this a conditional assignment?
     Node condition = null;
-    if (match(Token.Kind.IF) != null) {
-      condition = computation();
+    if (this.match(Token.Kind.IF) != null) {
+      condition = this.computation();
     } else {
       // Is this a list comprehension?
-      Node comprehension = comprehension();
+      final Node comprehension = this.comprehension();
       if (null != comprehension) {
         return new Assignment().add(left).add(right);
       }
@@ -941,37 +1008,33 @@ public class Parser {
    * ternaryIf := IF computation then computation else computation
    */
   private Node ternaryIf() {
-    List<Token> ifTokens = match(Kind.IF);
-    if (ifTokens == null)
-      ifTokens = match(Kind.UNLESS);
+    List<Token> ifTokens = this.match(Kind.IF);
+    if (ifTokens == null) {
+      ifTokens = this.match(Kind.UNLESS);
+    }
 
     if (ifTokens != null) {
-      Token operator = ifTokens.get(0);
-      Node ifPart = computation();
-      if (match(Token.Kind.THEN) == null) {
-        addError(operator.kind + " expression missing THEN clause", tokens.get(i - 1));
+      final Token operator = ifTokens.get(0);
+      final Node ifPart = this.computation();
+      if (this.match(Token.Kind.THEN) == null) {
+        this.addError(operator.kind + " expression missing THEN clause", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
-      Node thenPart = computation();
+      final Node thenPart = this.computation();
 
       // Allow user not to specify else (equivalent of "... else Nothing").
       Node elsePart;
-      if (match(Token.Kind.ELSE) == null) {
-//        addError(operator.kind + " expression missing ELSE clause", tokens.get(i - 1));
-//        throw new LoopCompileException();
+      if (this.match(Token.Kind.ELSE) == null) {
+        // addError(operator.kind + " expression missing ELSE clause", tokens.get(i - 1));
+        // throw new LoopCompileException();
         elsePart = new TypeLiteral(TypeLiteral.NOTHING);
-      } else
-        elsePart = computation();
+      } else {
+        elsePart = this.computation();
+      }
 
-      Node expr = operator.kind == Kind.IF
-          ? new TernaryIfExpression()
-          : new TernaryUnlessExpression();
-      return expr
-          .add(ifPart)
-          .add(thenPart)
-          .add(elsePart)
-          .sourceLocation(ifTokens);
+      final Node expr = operator.kind == Kind.IF ? new TernaryIfExpression() : new TernaryUnlessExpression();
+      return expr.add(ifPart).add(thenPart).add(elsePart).sourceLocation(ifTokens);
     }
 
     return null;
@@ -981,35 +1044,35 @@ public class Parser {
    * comprehension := FOR variable IN computation (AND computation)?
    */
   private Node comprehension() {
-    List<Token> forTokens = match(Kind.FOR);
+    final List<Token> forTokens = this.match(Kind.FOR);
     if (forTokens == null) {
       return null;
     }
 
-    Node variable = variable();
+    final Node variable = this.variable();
     if (null == variable) {
-      addError("Expected variable identifier after 'for' in list comprehension", tokens.get(i - 1));
+      this.addError("Expected variable identifier after 'for' in list comprehension", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    if (match(Token.Kind.IN) == null) {
-      addError("Expected 'in' after identifier in list comprehension", tokens.get(i - 1));
+    if (this.match(Token.Kind.IN) == null) {
+      this.addError("Expected 'in' after identifier in list comprehension", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    Node inList = computation();
+    final Node inList = this.computation();
     if (null == inList) {
-      addError("Expected list clause after 'in' in list comprehension", tokens.get(i - 1));
+      this.addError("Expected list clause after 'in' in list comprehension", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    if (match(Token.Kind.IF) == null) {
+    if (this.match(Token.Kind.IF) == null) {
       return new Comprehension(variable, inList, null).sourceLocation(forTokens);
     }
 
-    Node filter = computation();
+    final Node filter = this.computation();
     if (filter == null) {
-      addError("Expected filter expression after 'if' in list comprehension", tokens.get(i - 1));
+      this.addError("Expected filter expression after 'if' in list comprehension", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
@@ -1020,18 +1083,18 @@ public class Parser {
    * group := LPAREN computation RPAREN
    */
   private Node group() {
-    if (match(Token.Kind.LPAREN) == null) {
+    if (this.match(Token.Kind.LPAREN) == null) {
       return null;
     }
 
-    Node computation = computation();
+    final Node computation = this.computation();
     if (null == computation) {
-      addError("Expected expression after '(' in group", tokens.get(i - 1));
+      this.addError("Expected expression after '(' in group", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    if (match(Token.Kind.RPAREN) == null) {
-      addError("Expected ')' to close group expression", tokens.get(i - 1));
+    if (this.match(Token.Kind.RPAREN) == null) {
+      this.addError("Expected ')' to close group expression", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
@@ -1042,10 +1105,10 @@ public class Parser {
    * computation := (group | chain) (comprehension | (rightOp (group | chain)) )*
    */
   public Node computation() {
-    Node node = group();
+    Node node = this.group();
 
     if (node == null) {
-      node = chain();
+      node = this.chain();
     }
 
     // Production failed.
@@ -1053,26 +1116,27 @@ public class Parser {
       return null;
     }
 
-    Computation computation = new Computation();
+    final Computation computation = new Computation();
     computation.add(node);
 
     // See if there is a call here.
-    MemberAccess postfixCall = call();
-    if (postfixCall != null)
+    final MemberAccess postfixCall = this.call();
+    if (postfixCall != null) {
       computation.add(postfixCall.postfix(true));
+    }
 
     Node rightOp;
     Node comprehension = null;
     Node operand;
-    while ((rightOp = rightOp()) != null || (comprehension = comprehension()) != null) {
+    while ((rightOp = this.rightOp()) != null || (comprehension = this.comprehension()) != null) {
       if (comprehension != null) {
         computation.add(comprehension);
         continue;
       }
 
-      operand = group();
+      operand = this.group();
       if (null == operand) {
-        operand = chain();
+        operand = this.chain();
       }
       if (null == operand) {
         break;
@@ -1086,24 +1150,24 @@ public class Parser {
   }
 
   /**
-   * chain := listOrMapDef | ternaryIf | anonymousFunctionDecl | (term  arglist? (call |
-   * indexIntoList)*)
+   * chain := listOrMapDef | ternaryIf | anonymousFunctionDecl | (term arglist? (call | indexIntoList)*)
    */
   private Node chain() {
-    Node node = listOrMapDef();
+    Node node = this.listOrMapDef();
 
     // If not a list, maybe a ternary if?
     if (null == node) {
-      node = ternaryIf();
+      node = this.ternaryIf();
     }
 
     if (null == node) {
-      node = anonymousFunctionDecl();
+      node = this.anonymousFunctionDecl();
     }
 
     // If not an ternary IF, maybe a term?
-    if (null == node)
-      node = term();
+    if (null == node) {
+      node = this.term();
+    }
 
     // Production failed.
     if (null == node) {
@@ -1111,25 +1175,23 @@ public class Parser {
     }
 
     // If args exist, then we should turn this simple term into a free method call.
-    CallArguments args = arglist();
+    final CallArguments args = this.arglist();
     if (null != args) {
-      String functionName = (node instanceof Variable)
-          ? ((Variable) node).name
-          : ((PrivateField) node).name();
+      final String functionName = node instanceof Variable ? ((Variable) node).name : ((PrivateField) node).name();
       node = new Call(functionName, args).sourceLocation(node);
     }
 
-    CallChain chain = new CallChain();
+    final CallChain chain = new CallChain();
     chain.add(node);
 
     // Is this a static method call being set up? I.e. NOT a reference to a constant.
-    boolean isJavaStaticRef = node instanceof JavaLiteral && ((JavaLiteral) node).staticFieldAccess == null;
+    final boolean isJavaStaticRef = node instanceof JavaLiteral && ((JavaLiteral) node).staticFieldAccess == null;
     Node call, indexIntoList = null;
     boolean isFirst = true;
-    while ((call = call()) != null || (indexIntoList = indexIntoList()) != null) {
+    while ((call = this.call()) != null || (indexIntoList = this.indexIntoList()) != null) {
       if (call != null) {
-        MemberAccess postfixCall = (MemberAccess) call;
-        postfixCall.javaStatic((isFirst && isJavaStaticRef) || postfixCall.isJavaStatic());
+        final MemberAccess postfixCall = (MemberAccess) call;
+        postfixCall.javaStatic(isFirst && isJavaStaticRef || postfixCall.isJavaStatic());
         postfixCall.postfix(true);
 
         // Once we have marked a call as java static, the rest of the chain is not. I.e.:
@@ -1140,13 +1202,10 @@ public class Parser {
     }
 
     // Smart prediction of whether this is a namespaced call or not.
-    List<Node> children = chain.children();
-    if (aliasedModules != null
-        && !isJavaStaticRef
-        && children.size() == 2
-        && node instanceof Variable) {
-      Variable namespace = (Variable) node;
-      if (aliasedModules.contains(namespace.name)) {
+    final List<Node> children = chain.children();
+    if (this.aliasedModules != null && !isJavaStaticRef && children.size() == 2 && node instanceof Variable) {
+      final Variable namespace = (Variable) node;
+      if (this.aliasedModules.contains(namespace.name)) {
         ((Call) children.get(1)).namespace(namespace.name);
 
         children.remove(0);
@@ -1161,7 +1220,7 @@ public class Parser {
    */
   private CallArguments arglist() {
     // Test if there is a leading paren.
-    List<Token> parenthetical = match(Token.Kind.LPAREN);
+    final List<Token> parenthetical = this.match(Token.Kind.LPAREN);
 
     if (null == parenthetical) {
       return null;
@@ -1170,11 +1229,11 @@ public class Parser {
     // Slurp arguments while commas exist.
     CallArguments callArguments;
     // See if this may be a named-arg invocation.
-    List<Token> named = match(Token.Kind.IDENT, Token.Kind.ASSIGN);
-    boolean isPositional = (null == named);
+    List<Token> named = this.match(Token.Kind.IDENT, Token.Kind.ASSIGN);
+    final boolean isPositional = null == named;
 
     callArguments = new CallArguments(isPositional);
-    Node arg = computation();
+    Node arg = this.computation();
     if (null != arg) {
 
       // If this is a named arg, wrap it in a name.
@@ -1186,20 +1245,19 @@ public class Parser {
     }
 
     // Rest of argument list, comma separated.
-    while (match(Token.Kind.COMMA) != null) {
+    while (this.match(Token.Kind.COMMA) != null) {
       named = null;
       if (!isPositional) {
-        named = match(Token.Kind.IDENT, Token.Kind.ASSIGN);
+        named = this.match(Token.Kind.IDENT, Token.Kind.ASSIGN);
         if (null == named) {
-          addError("Cannot mix named and positional arguments in a function call",
-              tokens.get(i - 1));
+          this.addError("Cannot mix named and positional arguments in a function call", this.tokens.get(this.i - 1));
           throw new LoopCompileException();
         }
       }
 
-      arg = computation();
+      arg = this.computation();
       if (null == arg) {
-        addError("Expected expression after ',' in function call argument list", tokens.get(i - 1));
+        this.addError("Expected expression after ',' in function call argument list", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
@@ -1211,8 +1269,8 @@ public class Parser {
     }
 
     // Ensure the method invocation is properly closed.
-    if (match(Token.Kind.RPAREN) == null) {
-      addError("Expected ')' at end of function call argument list", tokens.get(i - 1));
+    if (this.match(Token.Kind.RPAREN) == null) {
+      this.addError("Expected ')' at end of function call argument list", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
@@ -1225,30 +1283,30 @@ public class Parser {
    * indexIntoList := LBRACKET (computation | computation? DOT DOT computation?)? RBRACKET
    */
   private Node indexIntoList() {
-    List<Token> lbracketTokens = match(Kind.LBRACKET);
+    final List<Token> lbracketTokens = this.match(Kind.LBRACKET);
     if (lbracketTokens == null) {
       return null;
     }
 
-    Node index = computation();
+    final Node index = this.computation();
 
     // This is a list slice with a range specifier.
     Node to = null;
     boolean slice = false;
-    if (match(Token.Kind.DOT) != null) {
-      if (match(Token.Kind.DOT) == null) {
-        addError("Syntax error, range specifier incomplete. Expected '..'", tokens.get(i - 1));
+    if (this.match(Token.Kind.DOT) != null) {
+      if (this.match(Token.Kind.DOT) == null) {
+        this.addError("Syntax error, range specifier incomplete. Expected '..'", this.tokens.get(this.i - 1));
         throw new LoopCompileException();
       }
 
       slice = true;
-      to = computation();
+      to = this.computation();
     } else if (index == null) {
       throw new RuntimeException("Expected symbol or '..' list slice operator.");
     }
 
-    if (match(Token.Kind.RBRACKET) == null) {
-      addError("Expected ']' at the end of list index expression", tokens.get(i - 1));
+    if (this.match(Token.Kind.RBRACKET) == null) {
+      this.addError("Expected ']' at the end of list index expression", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
@@ -1258,34 +1316,33 @@ public class Parser {
   /**
    * Inline list/map definition.
    * <p/>
-   * listOrMapDef := LBRACKET (computation ((COMMA computation)* | computation? DOT DOT
-   * computation?)) | (computation COLON computation (COMMA computation COLON computation)*) | COLON
-   * RBRACKET
+   * listOrMapDef := LBRACKET (computation ((COMMA computation)* | computation? DOT DOT computation?)) | (computation
+   * COLON computation (COMMA computation COLON computation)*) | COLON RBRACKET
    */
   private Node listOrMapDef() {
     boolean isBraced = false;
-    List<Token> lbracketTokens = match(Kind.LBRACKET);
+    List<Token> lbracketTokens = this.match(Kind.LBRACKET);
     if (lbracketTokens == null) {
-      if ((lbracketTokens = match(Token.Kind.LBRACE)) == null) {
+      if ((lbracketTokens = this.match(Token.Kind.LBRACE)) == null) {
         return null;
       } else {
         isBraced = true;
       }
     }
 
-    Node index = computation();
+    final Node index = this.computation();
 
     Node list = new InlineListDef(isBraced).sourceLocation(lbracketTokens);
     if (null != index) {
-      boolean isMap = match(Token.Kind.ASSIGN) != null;
+      final boolean isMap = this.match(Token.Kind.ASSIGN) != null;
       if (isMap) {
         list = new InlineMapDef(!isBraced).sourceLocation(lbracketTokens);
 
         // This map will be stored as a list of alternating keys/values (in pairs).
         list.add(index);
-        Node value = computation();
+        final Node value = this.computation();
         if (null == value) {
-          addError("Expected expression after ':' in map definition", tokens.get(i - 1));
+          this.addError("Expected expression after ':' in map definition", this.tokens.get(this.i - 1));
           throw new LoopCompileException();
         }
         list.add(value);
@@ -1294,11 +1351,11 @@ public class Parser {
       }
 
       // Slurp up all list or map argument values as a comma-separated sequence.
-      while (match(Token.Kind.COMMA) != null) {
-        Node listElement = computation();
+      while (this.match(Token.Kind.COMMA) != null) {
+        final Node listElement = this.computation();
         if (null == listElement) {
-          addError("Expected expression after ',' in " + (isMap ? "map" : "list") + " definition",
-              tokens.get(i - 1));
+          this.addError("Expected expression after ',' in " + (isMap ? "map" : "list") + " definition",
+              this.tokens.get(this.i - 1));
           throw new LoopCompileException();
         }
 
@@ -1306,44 +1363,43 @@ public class Parser {
 
         // If the first index contained a hashrocket, then this is a map.
         if (isMap) {
-          if (null == match(Token.Kind.ASSIGN)) {
-            addError("Expected ':' after map key in map definition", tokens.get(i - 1));
+          if (null == this.match(Token.Kind.ASSIGN)) {
+            this.addError("Expected ':' after map key in map definition", this.tokens.get(this.i - 1));
             throw new LoopCompileException();
           }
 
-          Node value = computation();
+          final Node value = this.computation();
           if (null == value) {
-            addError("Expected value expression after ':' in map definition", tokens.get(i - 1));
+            this.addError("Expected value expression after ':' in map definition", this.tokens.get(this.i - 1));
             throw new LoopCompileException();
           }
           list.add(value);
         }
       }
 
-
       // OTHERWISE---
       // This is a list slice with a range specifier.
       Node to;
       boolean slice;
-      if (match(Token.Kind.DOT) != null) {
-        if (match(Token.Kind.DOT) == null) {
-          addError("Syntax error, range specifier incomplete. Expected '..'", tokens.get(i - 1));
+      if (this.match(Token.Kind.DOT) != null) {
+        if (this.match(Token.Kind.DOT) == null) {
+          this.addError("Syntax error, range specifier incomplete. Expected '..'", this.tokens.get(this.i - 1));
           throw new LoopCompileException();
         }
 
         slice = true;
-        to = computation();
+        to = this.computation();
         list = new ListRange(index, slice, to).sourceLocation(lbracketTokens);
       }
     }
 
     // Is there a hashrocket?
-    if (match(Token.Kind.ASSIGN) != null) {
+    if (this.match(Token.Kind.ASSIGN) != null) {
       // This is an empty hashmap.
       list = new InlineMapDef(!isBraced);
     }
-    if (anyOf(Token.Kind.RBRACKET, Token.Kind.RBRACE) == null) {
-      addError("Expected '" + (isBraced ? "}" : "]'"), tokens.get(i - 1));
+    if (this.anyOf(Token.Kind.RBRACKET, Token.Kind.RBRACE) == null) {
+      this.addError("Expected '" + (isBraced ? "}" : "]'"), this.tokens.get(this.i - 1));
       return null;
     }
 
@@ -1351,40 +1407,36 @@ public class Parser {
   }
 
   /**
-   *  dereference := '::' (IDENT | TYPE_IDENT) argList?
+   * dereference := '::' (IDENT | TYPE_IDENT) argList?
    */
   private MemberAccess staticCall() {
-    List<Token> staticOperator = match(Kind.ASSIGN, Kind.ASSIGN);
-    boolean isStatic = RestrictedKeywords.isStaticOperator(staticOperator);
-    if (!isStatic)
+    final List<Token> staticOperator = this.match(Kind.ASSIGN, Kind.ASSIGN);
+    final boolean isStatic = RestrictedKeywords.isStaticOperator(staticOperator);
+    if (!isStatic) {
       return null;
+    }
 
-    List<Token> ident = match(Kind.IDENT);
+    List<Token> ident = this.match(Kind.IDENT);
 
     boolean constant = false;
     if (ident == null) {
-      ident = match(Kind.TYPE_IDENT);
+      ident = this.match(Kind.TYPE_IDENT);
       constant = true;
     }
 
     if (ident == null) {
-      addError("Expected static method identifier after '::'", staticOperator.get(0));
+      this.addError("Expected static method identifier after '::'", staticOperator.get(0));
       throw new RuntimeException("Expected static method identifier after '::'");
     }
 
-    CallArguments arglist = arglist();
+    final CallArguments arglist = this.arglist();
 
-    if (arglist == null)
-      return new Dereference(ident.get(0).value)
-          .constant(constant)
-          .javaStatic(isStatic)
-          .sourceLocation(ident);
+    if (arglist == null) {
+      return new Dereference(ident.get(0).value).constant(constant).javaStatic(isStatic).sourceLocation(ident);
+    }
 
     // Use the ident as name, and it is a method if there are () at end.
-    return new Call(ident.get(0).value, arglist)
-        .callJava(true)
-        .javaStatic(isStatic)
-        .sourceLocation(ident);
+    return new Call(ident.get(0).value, arglist).callJava(true).javaStatic(isStatic).sourceLocation(ident);
   }
 
   /**
@@ -1393,18 +1445,21 @@ public class Parser {
    * call := staticCall | (DOT|UNARROW (IDENT | PRIVATE_FIELD) arglist?)
    */
   private MemberAccess call() {
-    MemberAccess dereference = staticCall();
-    if (dereference != null)
+    final MemberAccess dereference = this.staticCall();
+    if (dereference != null) {
       return dereference;
+    }
 
-    List<Token> call = match(Token.Kind.DOT, Token.Kind.IDENT);
+    List<Token> call = this.match(Token.Kind.DOT, Token.Kind.IDENT);
 
-    if (null == call)
-      call = match(Token.Kind.DOT, Token.Kind.PRIVATE_FIELD);
-
-    boolean forceJava = false, javaStatic = false;
     if (null == call) {
-      call = match(Token.Kind.UNARROW, Token.Kind.IDENT);
+      call = this.match(Token.Kind.DOT, Token.Kind.PRIVATE_FIELD);
+    }
+
+    boolean forceJava = false;
+    final boolean javaStatic = false;
+    if (null == call) {
+      call = this.match(Token.Kind.UNARROW, Token.Kind.IDENT);
       forceJava = true;
     }
 
@@ -1413,69 +1468,67 @@ public class Parser {
       return null;
     }
 
-    CallArguments callArguments = arglist();
-    if (callArguments == null)
-      return new Dereference(call.get(1).value)
-          .sourceLocation(call);
+    final CallArguments callArguments = this.arglist();
+    if (callArguments == null) {
+      return new Dereference(call.get(1).value).sourceLocation(call);
+    }
 
     // Use the ident as name, and it is a method if there are () at end.
-    return new Call(call.get(1).value, callArguments)
-        .callJava(forceJava)
-        .javaStatic(javaStatic)
-        .sourceLocation(call);
+    return new Call(call.get(1).value, callArguments).callJava(forceJava).javaStatic(javaStatic).sourceLocation(call);
   }
 
   /**
    * constructorCall := NEW TYPE_IDENT arglist
    */
   private Node constructorCall() {
-    if (match(Kind.NEW) == null)
+    if (this.match(Kind.NEW) == null) {
       return null;
+    }
 
     String modulePart = null;
     List<Token> module;
     do {
-      module = match(Kind.IDENT, Kind.DOT);
+      module = this.match(Kind.IDENT, Kind.DOT);
       if (module != null) {
-        if (modulePart == null)
+        if (modulePart == null) {
           modulePart = "";
+        }
 
         modulePart += module.iterator().next().value + ".";
       }
     } while (module != null);
 
-    List<Token> typeName = match(Kind.TYPE_IDENT);
+    final List<Token> typeName = this.match(Kind.TYPE_IDENT);
     if (null == typeName) {
-      addError("Expected type identifer after 'new'", tokens.get(i - 1));
+      this.addError("Expected type identifer after 'new'", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    CallArguments arglist = arglist();
+    final CallArguments arglist = this.arglist();
     if (null == arglist) {
-      addError("Expected '(' after constructor call", tokens.get(i - 1));
+      this.addError("Expected '(' after constructor call", this.tokens.get(this.i - 1));
       throw new LoopCompileException();
     }
 
-    return new ConstructorCall(modulePart, typeName.iterator().next().value, arglist)
-        .sourceLocation(typeName);
+    return new ConstructorCall(modulePart, typeName.iterator().next().value, arglist).sourceLocation(typeName);
   }
 
   /**
    * term := (literal | variable | field | constructorCall)
    */
   private Node term() {
-    Node term = literal();
+    Node term = this.literal();
 
     if (null == term) {
-      term = variable();
+      term = this.variable();
     }
 
     if (null == term) {
-      term = field();
+      term = this.field();
     }
 
     if (null == term) {
-      term = constructorCall();
+      term = this.constructorCall();
     }
 
     return term;
@@ -1485,83 +1538,85 @@ public class Parser {
    * regexLiteral := DIVIDE ^(DIVIDE|EOL|EOF) DIVIDE
    */
   private Node regexLiteral() {
-    int cursor = i;
+    int cursor = this.i;
 
-    Token token = tokens.get(cursor);
+    Token token = this.tokens.get(cursor);
     if (Token.Kind.DIVIDE == token.kind) {
 
       // Look ahead until we find the ending terminal, EOL or EOF.
       boolean noTerminal = false;
       do {
         cursor++;
-        token = tokens.get(cursor);
+        token = this.tokens.get(cursor);
         if (Token.Kind.EOL == token.kind) {
           noTerminal = true;
           break;
         }
 
-      } while (notEndOfRegex(token) && cursor < tokens.size() /* EOF check */);
+      } while (Parser.notEndOfRegex(token) && cursor < this.tokens.size() /* EOF check */);
 
       // Skip the last divide.
       cursor++;
 
-      if (noTerminal)
+      if (noTerminal) {
         return null;
+      }
 
-    } else
+    } else {
       return null;
+    }
 
-    int start = i;
-    i = cursor;
+    final int start = this.i;
+    this.i = cursor;
 
     // Compress tokens into regex literal.
-    StringBuilder builder = new StringBuilder();
-    for (Token part : tokens.subList(start, i))
+    final StringBuilder builder = new StringBuilder();
+    for (final Token part : this.tokens.subList(start, this.i)) {
       builder.append(part.value);
+    }
 
     String expression = builder.toString();
-    if (expression.startsWith("/") && expression.endsWith("/"))
+    if (expression.startsWith("/") && expression.endsWith("/")) {
       expression = expression.substring(1, expression.length() - 1);
+    }
     return new RegexLiteral(expression).sourceLocation(token);
   }
 
-  private static boolean notEndOfRegex(Token token) {
-    return (Token.Kind.DIVIDE != token.kind && Token.Kind.REGEX != token.kind);
+  private static boolean notEndOfRegex(final Token token) {
+    return Token.Kind.DIVIDE != token.kind && Token.Kind.REGEX != token.kind;
   }
 
   /**
-   * (lexer super rule) literal := string | MINUS? (integer | long | ( integer DOT integer ))
-   * | TYPE_IDENT | JAVA_LITERAL
+   * (lexer super rule) literal := string | MINUS? (integer | long | ( integer DOT integer )) | TYPE_IDENT |
+   * JAVA_LITERAL
    */
   private Node literal() {
-    Token token =
-        anyOf(Token.Kind.STRING,
-            Token.Kind.INTEGER, Kind.BIG_INTEGER, Kind.LONG,
-            Token.Kind.TYPE_IDENT,
-            Token.Kind.JAVA_LITERAL,
-            Token.Kind.TRUE, Token.Kind.FALSE);
+    final Token token = this.anyOf(Token.Kind.STRING, Token.Kind.INTEGER, Kind.BIG_INTEGER, Kind.LONG,
+        Token.Kind.TYPE_IDENT, Token.Kind.JAVA_LITERAL, Token.Kind.TRUE, Token.Kind.FALSE);
     if (null == token) {
-      List<Token> match = match(Token.Kind.MINUS, Token.Kind.INTEGER);
+      List<Token> match = this.match(Token.Kind.MINUS, Token.Kind.INTEGER);
       if (null != match) {
-        List<Token> additional = match(Kind.DOT, Kind.INTEGER);
-        if (additional != null)
-          return new DoubleLiteral('-' + match.get(1).value + '.' + additional.get(1).value)
-              .sourceLocation(additional.get(1));
+        List<Token> additional = this.match(Kind.DOT, Kind.INTEGER);
+        if (additional != null) {
+          return new DoubleLiteral('-' + match.get(1).value + '.' + additional.get(1).value).sourceLocation(additional
+              .get(1));
+        }
 
-        additional = match(Kind.DOT, Kind.FLOAT);
-        if (additional != null)
+        additional = this.match(Kind.DOT, Kind.FLOAT);
+        if (additional != null) {
           return new FloatLiteral('-' + match.get(1).value + '.' + additional.get(1).value + 'F')
               .sourceLocation(additional.get(1));
+        }
 
         return new IntLiteral('-' + match.get(1).value).sourceLocation(match.get(1));
-      } else if ((match = match(Kind.MINUS, Kind.LONG)) != null)
+      } else if ((match = this.match(Kind.MINUS, Kind.LONG)) != null) {
         return new LongLiteral('-' + match.get(1).value).sourceLocation(match.get(1));
-
-      else if ((match = match(Kind.MINUS, Kind.BIG_INTEGER)) != null) {
-        List<Token> additional = match(Kind.DOT, Kind.INTEGER);
-        if (additional != null)
+      } else if ((match = this.match(Kind.MINUS, Kind.BIG_INTEGER)) != null) {
+        final List<Token> additional = this.match(Kind.DOT, Kind.INTEGER);
+        if (additional != null) {
           return new BigDecimalLiteral('-' + match.get(1).value + '.' + additional.get(1).value)
               .sourceLocation(additional.get(1));
+        }
 
         return new BigIntegerLiteral('-' + match.get(1).value).sourceLocation(match.get(1));
       }
@@ -1570,61 +1625,61 @@ public class Parser {
     }
 
     switch (token.kind) {
-      case TRUE:
-      case FALSE:
-        return new BooleanLiteral(token).sourceLocation(token);
-      case INTEGER:
-        List<Token> additional = match(Kind.DOT, Kind.INTEGER);
-        if (additional != null)
-          return new DoubleLiteral(token.value + '.' + additional.get(1).value)
-              .sourceLocation(additional.get(1));
+    case TRUE:
+    case FALSE:
+      return new BooleanLiteral(token).sourceLocation(token);
+    case INTEGER:
+      List<Token> additional = this.match(Kind.DOT, Kind.INTEGER);
+      if (additional != null) {
+        return new DoubleLiteral(token.value + '.' + additional.get(1).value).sourceLocation(additional.get(1));
+      }
 
-        additional = match(Kind.DOT, Kind.FLOAT);
-        if (additional != null)
-          return new FloatLiteral(token.value + '.' + additional.get(1).value + 'F')
-              .sourceLocation(additional.get(1));
+      additional = this.match(Kind.DOT, Kind.FLOAT);
+      if (additional != null) {
+        return new FloatLiteral(token.value + '.' + additional.get(1).value + 'F').sourceLocation(additional.get(1));
+      }
 
-        return new IntLiteral(token.value).sourceLocation(token);
-      case BIG_INTEGER:
-        additional = match(Kind.DOT, Kind.INTEGER);
-        if (additional != null)
-          return new BigDecimalLiteral(token.value + '.' + additional.get(1).value)
-              .sourceLocation(additional.get(1));
+      return new IntLiteral(token.value).sourceLocation(token);
+    case BIG_INTEGER:
+      additional = this.match(Kind.DOT, Kind.INTEGER);
+      if (additional != null) {
+        return new BigDecimalLiteral(token.value + '.' + additional.get(1).value).sourceLocation(additional.get(1));
+      }
 
-        return new BigIntegerLiteral(token.value).sourceLocation(token);
-      case LONG:
-        return new LongLiteral(token.value).sourceLocation(token);
-      case STRING:
-        return new StringLiteral(token.value).sourceLocation(token);
-      case TYPE_IDENT:
-        return new TypeLiteral(token.value).sourceLocation(token);
-      case JAVA_LITERAL:
-        return new JavaLiteral(token.value).sourceLocation(token);
+      return new BigIntegerLiteral(token.value).sourceLocation(token);
+    case LONG:
+      return new LongLiteral(token.value).sourceLocation(token);
+    case STRING:
+      return new StringLiteral(token.value).sourceLocation(token);
+    case TYPE_IDENT:
+      return new TypeLiteral(token.value).sourceLocation(token);
+    case JAVA_LITERAL:
+      return new JavaLiteral(token.value).sourceLocation(token);
+    default:
+      return null;
     }
-    return null;
   }
 
   private Node variable() {
-    List<Token> var = match(Token.Kind.IDENT);
-    return (null != var) ? new Variable(var.get(0).value).sourceLocation(var) : null;
+    final List<Token> var = this.match(Token.Kind.IDENT);
+    return null != var ? new Variable(var.get(0).value).sourceLocation(var) : null;
   }
 
   private Node field() {
-    List<Token> var = match(Token.Kind.PRIVATE_FIELD);
-    return (null != var) ? new PrivateField(var.get(0).value).sourceLocation(var) : null;
+    final List<Token> var = this.match(Token.Kind.PRIVATE_FIELD);
+    return null != var ? new PrivateField(var.get(0).value).sourceLocation(var) : null;
   }
-
 
   /**
    * Right associative operator (see Token.Kind).
    */
   private Node rightOp() {
-    if (i >= tokens.size()) {
+    if (this.i >= this.tokens.size()) {
       return null;
     }
-    Token token = tokens.get(i);
-    if (isRightAssociative(token)) {
-      i++;
+    final Token token = this.tokens.get(this.i);
+    if (Parser.isRightAssociative(token)) {
+      this.i++;
       return new BinaryOp(token).sourceLocation(token);
     }
 
@@ -1633,14 +1688,14 @@ public class Parser {
   }
 
   // Production tools.
-  private Token anyOf(Token.Kind... ident) {
-    if (i >= tokens.size()) {
+  private Token anyOf(final Token.Kind... ident) {
+    if (this.i >= this.tokens.size()) {
       return null;
     }
-    for (Token.Kind kind : ident) {
-      Token token = tokens.get(i);
+    for (final Token.Kind kind : ident) {
+      final Token token = this.tokens.get(this.i);
       if (kind == token.kind) {
-        i++;
+        this.i++;
         return token;
       }
     }
@@ -1649,16 +1704,16 @@ public class Parser {
     return null;
   }
 
-  private List<Token> match(Token.Kind... ident) {
-    int cursor = i;
-    for (Token.Kind kind : ident) {
+  private List<Token> match(final Token.Kind... ident) {
+    int cursor = this.i;
+    for (final Token.Kind kind : ident) {
 
       // What we want is more than the size of the token stream.
-      if (cursor >= tokens.size()) {
+      if (cursor >= this.tokens.size()) {
         return null;
       }
 
-      Token token = tokens.get(cursor);
+      final Token token = this.tokens.get(cursor);
       if (token.kind != kind) {
         return null;
       }
@@ -1667,16 +1722,16 @@ public class Parser {
     }
 
     // Forward cursor in token stream to match point.
-    int start = i;
-    i = cursor;
-    return tokens.subList(start, i);
+    final int start = this.i;
+    this.i = cursor;
+    return this.tokens.subList(start, this.i);
   }
 
   /**
    * Returns true if this is the end of the text sequence.
    */
   private boolean endOfInput() {
-    return i == tokens.size();
+    return this.i == this.tokens.size();
   }
 
   /**
@@ -1684,32 +1739,28 @@ public class Parser {
    */
   private int withIndent() {
     int indent = 0;
-    while (match(Token.Kind.INDENT) != null) {
+    while (this.match(Token.Kind.INDENT) != null) {
       indent++;
     }
     return indent;
   }
 
-
   public Node ast() {
-    return last;
+    return this.last;
   }
 
-  private static boolean isLeftAssociative(Token token) {
-    return null != token && LEFT_ASSOCIATIVE.contains(token.kind);
+  private static boolean isRightAssociative(final Token token) {
+    return null != token && Parser.RIGHT_ASSOCIATIVE.contains(token.kind);
   }
 
-  private static boolean isRightAssociative(Token token) {
-    return null != token && RIGHT_ASSOCIATIVE.contains(token.kind);
-  }
-
-  public static String stringify(List<Node> list) {
-    StringBuilder builder = new StringBuilder();
+  public static String stringify(final List<Node> list) {
+    final StringBuilder builder = new StringBuilder();
     for (int i = 0, listSize = list.size(); i < listSize; i++) {
-      builder.append(stringify(list.get(i)));
+      builder.append(Parser.stringify(list.get(i)));
 
-      if (i < listSize - 1)
+      if (i < listSize - 1) {
         builder.append(' ');
+      }
     }
 
     return builder.toString();
@@ -1718,21 +1769,24 @@ public class Parser {
   /**
    * recursively walks a parse tree and turns it into a symbolic form that is test-readable.
    */
-  public static String stringify(Node tree) {
-    StringBuilder builder = new StringBuilder();
+  public static String stringify(final Node tree) {
+    final StringBuilder builder = new StringBuilder();
 
-    boolean shouldWrapInList = hasChildren(tree);
-    if (shouldWrapInList)
+    final boolean shouldWrapInList = Parser.hasChildren(tree);
+    if (shouldWrapInList) {
       builder.append('(');
+    }
     builder.append(tree.toSymbol());
 
-    if (shouldWrapInList)
+    if (shouldWrapInList) {
       builder.append(' ');
+    }
 
-    for (Node child : tree.children()) {
-      String s = stringify(child);
-      if (s.length() == 0)
+    for (final Node child : tree.children()) {
+      final String s = Parser.stringify(child);
+      if (s.length() == 0) {
         continue;
+      }
 
       builder.append(s);
       builder.append(' ');
@@ -1747,7 +1801,7 @@ public class Parser {
     return builder.toString();
   }
 
-  private static boolean hasChildren(Node tree) {
-    return (null != tree.children()) && !tree.children().isEmpty();
+  private static boolean hasChildren(final Node tree) {
+    return null != tree.children() && !tree.children().isEmpty();
   }
 }

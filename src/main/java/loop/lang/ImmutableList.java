@@ -1,100 +1,113 @@
 package loop.lang;
 
-import loop.LoopExecutionException;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
+
+import loop.LoopExecutionException;
 
 /**
  * @author dhanji@gmail.com (Dhanji R. Prasanna)
  */
 public class ImmutableList extends ArrayList implements Immutable {
 
-  public ImmutableList(Collection<?> collection) {
-    IdentityHashMap<Object, Object> cyclesCheck = new IdentityHashMap<Object, Object>();
+  private static final long serialVersionUID = 1L;
+
+  public ImmutableList(final Collection<?> collection) {
+    final IdentityHashMap<Object, Object> cyclesCheck = new IdentityHashMap<Object, Object>();
     cyclesCheck.put(collection, this);
 
-    deepCopy(collection, cyclesCheck);
+    this.deepCopy(collection, cyclesCheck);
   }
 
-  public ImmutableList(Collection<?> collection, IdentityHashMap<Object, Object> cyclesCheck) {
-    deepCopy(collection, cyclesCheck);
+  public ImmutableList(final Collection<?> collection, final IdentityHashMap<Object, Object> cyclesCheck) {
+    this.deepCopy(collection, cyclesCheck);
   }
 
   @SuppressWarnings("unchecked")
-  private void deepCopy(Collection<?> collection, IdentityHashMap<Object, Object> cyclesCheck) {
+  private void deepCopy(final Collection<?> collection, final IdentityHashMap<Object, Object> cyclesCheck) {
     for (Object value : collection) {
 
       // Make immutable copy of value if necessary.
       if (value instanceof Map) {
-        Object previouslyCopied = cyclesCheck.get(value);
-        if (previouslyCopied != null)
+        final Object previouslyCopied = cyclesCheck.get(value);
+        if (previouslyCopied != null) {
           value = previouslyCopied;
-        else {
-          ImmutableLoopObject copied =
-              new ImmutableLoopObject(LoopClass.IMMUTABLE_MAP, (Map<Object, Object>) value, cyclesCheck);
+        } else {
+          final ImmutableLoopObject copied = new ImmutableLoopObject(LoopClass.IMMUTABLE_MAP,
+              (Map<Object, Object>) value, cyclesCheck);
           cyclesCheck.put(value, copied);
           value = copied;
         }
       } else if (value instanceof Collection) {
-        Object previouslyCopied = cyclesCheck.get(value);
+        final Object previouslyCopied = cyclesCheck.get(value);
 
-        if (previouslyCopied != null)
+        if (previouslyCopied != null) {
           value = previouslyCopied;
-        else {
-          ImmutableList copied = new ImmutableList((Collection<?>) value, cyclesCheck);
+        } else {
+          final ImmutableList copied = new ImmutableList((Collection<?>) value, cyclesCheck);
           cyclesCheck.put(value, copied);
           value = copied;
         }
       }
 
       // Ensure immutability.
-      if (!ImmutableLoopObject.isImmutable(value))
+      if (!ImmutableLoopObject.isImmutable(value)) {
         throw new LoopExecutionException("Cannot add a mutable value to an immutable object");
+      }
 
       super.add(value);
     }
   }
 
-  @Override public Object set(int i, Object o) {
+  @Override
+  public Object set(final int i, final Object o) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public boolean add(Object o) {
+  @Override
+  public boolean add(final Object o) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public void add(int i, Object o) {
+  @Override
+  public void add(final int i, final Object o) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public Object remove(int i) {
+  @Override
+  public Object remove(final int i) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public boolean remove(Object o) {
+  @Override
+  public boolean remove(final Object o) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public void clear() {
+  @Override
+  public void clear() {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public boolean addAll(Collection collection) {
+  @Override
+  public boolean addAll(final Collection collection) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public boolean addAll(int i, Collection collection) {
+  @Override
+  public boolean addAll(final int i, final Collection collection) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override protected void removeRange(int i, int i1) {
+  @Override
+  protected void removeRange(final int i, final int i1) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 
-  @Override public boolean removeAll(Collection objects) {
+  @Override
+  public boolean removeAll(final Collection objects) {
     throw new LoopExecutionException(ImmutableLoopObject.IMMUTABILITY_ERROR);
   }
 }

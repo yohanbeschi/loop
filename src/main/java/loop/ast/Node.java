@@ -1,9 +1,9 @@
 package loop.ast;
 
-import loop.Token;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import loop.Token;
 
 /**
  * An abstract node in the parse tree.
@@ -16,18 +16,17 @@ public abstract class Node {
 
   public int sourceLine, sourceColumn;
 
-  public Node add(Node child) {
-    children.add(child);
+  public Node add(final Node child) {
+    this.children.add(child);
     return this;
   }
 
-  @SuppressWarnings("unchecked")
-  public <T extends Node> T sourceLocation(List<Token> tokens) {
-    return sourceLocation(tokens.iterator().next());
+  public <T extends Node> T sourceLocation(final List<Token> tokens) {
+    return this.sourceLocation(tokens.iterator().next());
   }
 
   @SuppressWarnings("unchecked")
-  public <T extends Node> T sourceLocation(Token start) {
+  public <T extends Node> T sourceLocation(final Token start) {
     this.sourceLine = start.line;
     this.sourceColumn = start.column;
 
@@ -35,7 +34,7 @@ public abstract class Node {
   }
 
   @SuppressWarnings("unchecked")
-  public <T extends Node> T sourceLocation(Node source) {
+  public <T extends Node> T sourceLocation(final Node source) {
     this.sourceLine = source.sourceLine;
     this.sourceColumn = source.sourceColumn;
 
@@ -43,19 +42,18 @@ public abstract class Node {
   }
 
   public List<Node> children() {
-    return children;
+    return this.children;
   }
 
   public Node onlyChild() {
-    assert children.size() == 1;
-    return children.get(0);
+    assert this.children.size() == 1;
+    return this.children.get(0);
   }
 
   public abstract String toSymbol();
 
   @Override
   public String toString() {
-    return getClass().getSimpleName() + "{" +
-        children + '}';
+    return this.getClass().getSimpleName() + "{" + this.children + '}';
   }
 }

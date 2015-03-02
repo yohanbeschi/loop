@@ -11,40 +11,43 @@ public class LoopClassLoader extends ClassLoader {
   final ConcurrentMap<String, Class<?>> loaded = new ConcurrentHashMap<String, Class<?>>();
   public static volatile LoopClassLoader CLASS_LOADER = new LoopClassLoader();
 
-  public void put(String javaClass, byte[] bytes) {
-    if (null != rawClasses.putIfAbsent(javaClass, bytes))
+  public void put(final String javaClass, final byte[] bytes) {
+    if (null != this.rawClasses.putIfAbsent(javaClass, bytes)) {
       throw new RuntimeException("Illegal attempt to define duplicate class");
+    }
   }
 
-  public boolean isLoaded(String javaClass) {
-    return loaded.containsKey(javaClass);
+  public boolean isLoaded(final String javaClass) {
+    return this.loaded.containsKey(javaClass);
   }
 
   @Override
-  protected Class findClass(String name) throws ClassNotFoundException {
-    Class<?> clazz = loaded.get(name);
-    if (null != clazz)
+  protected Class<?> findClass(final String name) throws ClassNotFoundException {
+    Class<?> clazz = this.loaded.get(name);
+    if (null != clazz) {
       return clazz;
+    }
 
-    final byte[] bytes = rawClasses.remove(name);
+    final byte[] bytes = this.rawClasses.remove(name);
     if (bytes != null) {
 
       // We don't define loop classes in the parent class loader.
-      clazz = defineClass(name, bytes);
+      clazz = this.defineClass(name, bytes);
 
-      if (loaded.putIfAbsent(name, clazz) != null)
+      if (this.loaded.putIfAbsent(name, clazz) != null) {
         throw new RuntimeException("Attempted duplicate class definition for " + name);
+      }
       return clazz;
     }
     return super.findClass(name);
   }
 
-  public Class defineClass(String name, byte[] b) {
-    return defineClass(name, b, 0, b.length);
+  public Class<?> defineClass(final String name, final byte[] b) {
+    return this.defineClass(name, b, 0, b.length);
   }
 
   public static void reset() {
-    CLASS_LOADER = new LoopClassLoader();
-    Thread.currentThread().setContextClassLoader(CLASS_LOADER);
+    LoopClassLoader.CLASS_LOADER = new LoopClassLoader();
+    Thread.currentThread().setContextClassLoader(LoopClassLoader.CLASS_LOADER);
   }
 }

@@ -9,39 +9,41 @@ public class Dereference extends MemberAccess {
   private boolean javaStatic;
   private boolean constant;
   private String namespace;
-  private boolean postfix;
 
-  public Dereference(String name) {
+  public Dereference(final String name) {
     this.name = name;
   }
 
+  @Override
   public String name() {
-    return name;
+    return this.name;
   }
 
-  public MemberAccess javaStatic(boolean isStatic) {
+  @Override
+  public MemberAccess javaStatic(final boolean isStatic) {
     this.javaStatic = isStatic;
 
     return this;
   }
 
   public String namespace() {
-    return namespace;
+    return this.namespace;
   }
 
-  public void namespace(String namespace) {
+  public void namespace(final String namespace) {
     this.namespace = namespace;
   }
 
+  @Override
   public boolean isJavaStatic() {
-    return javaStatic;
+    return this.javaStatic;
   }
 
   public boolean constant() {
-    return constant;
+    return this.constant;
   }
 
-  public Dereference constant(boolean constant) {
+  public Dereference constant(final boolean constant) {
     this.constant = constant;
 
     return this;
@@ -49,18 +51,16 @@ public class Dereference extends MemberAccess {
 
   @Override
   public String toString() {
-    return "Dereference{" + name + "}";
+    return "Dereference{" + this.name + "}";
   }
 
   @Override
   public String toSymbol() {
-    return name;
+    return this.name;
   }
 
   @Override
-  public Node postfix(boolean postfix) {
-    this.postfix = postfix;
-
+  public Node postfix(final boolean postfix) {
     return this;
   }
 }
