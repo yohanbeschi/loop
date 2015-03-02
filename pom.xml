@@ -23,7 +23,6 @@
     <!-- Dependencies -->
     <asm.version>4.0</asm.version>
     <jline.version>2.6</jline.version>
-    <mvel.version>2.1.Beta8</mvel.version>
     <junit.version>4.12</junit.version>
 
     <!-- Plugins -->
@@ -53,13 +52,6 @@
       <groupId>jline</groupId>
       <artifactId>jline</artifactId>
       <version>${jline.version}</version>
-    </dependency>
-
-    <dependency>
-      <groupId>org.mvel</groupId>
-      <artifactId>mvel2</artifactId>
-      <version>${mvel.version}</version>
-      <scope>test</scope>
     </dependency>
 
     <dependency>
